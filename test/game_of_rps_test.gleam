@@ -3,10 +3,6 @@ import gleam/list
 import gleeunit
 import gleeunit/should
 
-pub fn main() {
-  gleeunit.main()
-}
-
 pub type LocationState {
   Alive(cell: Cell)
   Dead
@@ -22,6 +18,14 @@ pub type Battle {
   Win
   Loss
   Draw
+}
+
+pub type Position {
+  Position(x: Int, y: Int)
+}
+
+pub type FightResult {
+  FightResult(wins: Int, losses: Int, draws: Int)
 }
 
 fn battle(cell, other) {
@@ -68,30 +72,6 @@ fn apply_result(cell, result: FightResult) {
       }
     False -> cell
   }
-}
-
-pub type FightResult {
-  FightResult(wins: Int, losses: Int, draws: Int)
-}
-
-pub fn general_test() {
-  [
-    #(Rock, [], Rock),
-    #(Scissors, [], Scissors),
-    #(Paper, [], Paper),
-    #(Rock, [Paper], Paper),
-    #(Rock, [Paper, Rock], Paper),
-    #(Rock, [Paper, Scissors], Paper),
-    #(Rock, [Paper, Scissors, Scissors], Rock),
-    #(Rock, [Paper, Rock, Rock], Paper),
-    #(Rock, [Paper, Paper, Scissors], Paper),
-    #(Scissors, [Paper], Scissors),
-  ]
-  |> list.map(fn(test_params) {
-    let #(cell, neighbors, expected) = test_params
-    fight(cell, neighbors)
-    |> should.equal(expected)
-  })
 }
 
 pub fn is_neighbor(position, other) {
@@ -188,10 +168,105 @@ pub fn find_cradles(world) {
   })
 }
 
+fn apply_rules(world) {
+  world
+  |> list.filter_map(fn(position_with_cell) {
+    let neighbors = find_neighbors(position_with_cell, world)
+    apply_rule(position_with_cell, neighbors)
+  })
+}
+
+fn evolve(world) {
+  world
+  |> find_cradles()
+  |> apply_rules()
+}
+
+pub fn gol_test() {
+  [
+    #([], []),
+    #([Location(x: 0, y: 0, cell: "🪨")], []),
+    #(
+      [
+        Location(x: 0, y: 0, cell: "🪨"),
+        Location(x: 1, y: 0, cell: "🪨"),
+        Location(x: 2, y: 0, cell: "🪨"),
+      ],
+      [Location(1, -1, "🪨"), Location(1, 0, "🪨"), Location(1, 1, "🪨")],
+    ),
+    #(
+      [
+        Location(x: 0, y: 0, cell: "📃"),
+        Location(x: 1, y: 0, cell: "🪨"),
+        Location(x: 2, y: 0, cell: "📃"),
+      ],
+      [Location(1, -1, "🪨"), Location(1, 0, "📃"), Location(1, 1, "🪨")],
+    ),
+    #(
+      [Location(1, -1, "🪨"), Location(1, 0, "📃"), Location(1, 1, "🪨")],
+      [Location(0, 0, "🪨"), Location(1, 0, "📃"), Location(2, 0, "🪨")],
+    ),
+  ]
+  |> list.map(fn(test_params) {
+    let #(world, evolved_world) = test_params
+    test_evolve(world)
+    |> should.equal(evolved_world)
+  })
+}
+
+pub fn fight_test() {
+  [
+    #(Rock, [], Rock),
+    #(Scissors, [], Scissors),
+    #(Paper, [], Paper),
+    #(Rock, [Paper], Paper),
+    #(Rock, [Paper, Rock], Paper),
+    #(Rock, [Paper, Scissors], Paper),
+    #(Rock, [Paper, Scissors, Scissors], Rock),
+    #(Rock, [Paper, Rock, Rock], Paper),
+    #(Rock, [Paper, Paper, Scissors], Paper),
+    #(Scissors, [Paper], Scissors),
+  ]
+  |> list.map(fn(test_params) {
+    let #(cell, neighbors, expected) = test_params
+    fight(cell, neighbors)
+    |> should.equal(expected)
+  })
+}
+
+pub fn main() {
+  gleeunit.main()
+}
+
+fn test_evolve(world) {
+  world
+  |> world_to_internal
+  |> evolve()
+  |> internal_to_world()
+}
+
+fn encode(string_cell) {
+  case string_cell {
+    "🪨" -> Rock
+    "✂" -> Scissors
+    "📃" -> Paper
+    _ -> panic("unknown " <> string_cell)
+  }
+}
+
+fn decode(cell) {
+  case cell {
+    Rock -> "🪨"
+    Scissors -> "✂"
+    Paper -> "📃"
+  }
+}
+
 fn world_to_internal(world) {
   world
   |> list.map(fn(location) {
     let Location(x: x, y: y, cell: cell) = location
+    let cell = encode(cell)
     #(Position(x, y), Alive(cell))
   })
 }
@@ -202,61 +277,14 @@ fn internal_to_world(world) {
     let #(position, location_state) = x
     case location_state {
       Dead -> Error(Nil)
-      Alive(cell) -> Ok(Location(position.x, position.y, cell))
+      Alive(cell) -> {
+        let cell = decode(cell)
+        Ok(Location(position.x, position.y, cell))
+      }
     }
   })
 }
 
-pub fn evolve(world) {
-  let world = world_to_internal(world)
-
-  let evolved_world =
-    world
-    |> find_cradles()
-    |> list.filter_map(fn(position_with_cell) {
-      let neighbors = find_neighbors(position_with_cell, world)
-      apply_rule(position_with_cell, neighbors)
-    })
-
-  internal_to_world(evolved_world)
-}
-
-pub type Position {
-  Position(x: Int, y: Int)
-}
-
-pub type Location {
-  Location(x: Int, y: Int, cell: Cell)
-}
-
-pub fn gol_test() {
-  [
-    #([], []),
-    #([Location(x: 0, y: 0, cell: Rock)], []),
-    #(
-      [
-        Location(x: 0, y: 0, cell: Rock),
-        Location(x: 1, y: 0, cell: Rock),
-        Location(x: 2, y: 0, cell: Rock),
-      ],
-      [Location(1, -1, Rock), Location(1, 0, Rock), Location(1, 1, Rock)],
-    ),
-    #(
-      [
-        Location(x: 0, y: 0, cell: Paper),
-        Location(x: 1, y: 0, cell: Rock),
-        Location(x: 2, y: 0, cell: Paper),
-      ],
-      [Location(1, -1, Rock), Location(1, 0, Paper), Location(1, 1, Rock)],
-    ),
-    #(
-      [Location(1, -1, Rock), Location(1, 0, Paper), Location(1, 1, Rock)],
-      [Location(0, 0, Rock), Location(1, 0, Paper), Location(2, 0, Rock)],
-    ),
-  ]
-  |> list.map(fn(test_params) {
-    let #(world, evolved_world) = test_params
-    evolve(world)
-    |> should.equal(evolved_world)
-  })
+type Location {
+  Location(x: Int, y: Int, cell: String)
 }
