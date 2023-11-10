@@ -1,6 +1,4 @@
 import gleam/int
-import gleam/result
-import gleam/io
 import gleam/list
 import gleeunit
 import gleeunit/should
@@ -146,6 +144,7 @@ pub fn apply_rule(pos: #(Position, LocationState), neighbors) {
       let transformed_cell = fight(cell, neighbors)
       Ok(#(position, Alive(transformed_cell)))
     }
+    #(Dead, 3) -> Ok(#(position, Alive(Rock)))
     _ -> Error(Nil)
   }
 }
@@ -240,7 +239,7 @@ pub fn gol_test() {
         Location(x: 1, y: 0, cell: Rock),
         Location(x: 2, y: 0, cell: Rock),
       ],
-      [Location(x: 1, y: 0, cell: Rock)],
+      [Location(1, -1, Rock), Location(1, 0, Rock), Location(1, 1, Rock)],
     ),
     #(
       [
@@ -248,7 +247,11 @@ pub fn gol_test() {
         Location(x: 1, y: 0, cell: Rock),
         Location(x: 2, y: 0, cell: Paper),
       ],
-      [Location(x: 1, y: 0, cell: Paper)],
+      [Location(1, -1, Rock), Location(1, 0, Paper), Location(1, 1, Rock)],
+    ),
+    #(
+      [Location(1, -1, Rock), Location(1, 0, Paper), Location(1, 1, Rock)],
+      [Location(0, 0, Rock), Location(1, 0, Paper), Location(2, 0, Rock)],
     ),
   ]
   |> list.map(fn(test_params) {
