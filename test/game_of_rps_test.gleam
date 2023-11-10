@@ -93,16 +93,13 @@ pub fn is_neighbor(position, other) {
 
 pub fn find_neighbors(location: #(Position, LocationState), world) {
   let #(position, _) = location
-  list.filter(
-    world,
-    fn(x) {
-      let #(neighbor_position, cell_state) = x
-      case cell_state {
-        Dead -> False
-        Alive(_) -> is_neighbor(position, neighbor_position)
-      }
-    },
-  )
+  list.filter(world, fn(x) {
+    let #(neighbor_position, cell_state) = x
+    case cell_state {
+      Dead -> False
+      Alive(_) -> is_neighbor(position, neighbor_position)
+    }
+  })
 }
 
 pub fn apply_rule(pos: #(Position, LocationState), neighbors) {
@@ -111,16 +108,13 @@ pub fn apply_rule(pos: #(Position, LocationState), neighbors) {
   case #(location_state, nb_of_neighbors) {
     #(Alive(cell), 2) | #(Alive(cell), 3) -> {
       let neighbors =
-        list.filter_map(
-          neighbors,
-          fn(n) {
-            let #(_, location_state) = n
-            case location_state {
-              Alive(c) -> Ok(c)
-              Dead -> Error(Nil)
-            }
-          },
-        )
+        list.filter_map(neighbors, fn(n) {
+          let #(_, location_state) = n
+          case location_state {
+            Alive(c) -> Ok(c)
+            Dead -> Error(Nil)
+          }
+        })
       let transformed_cell = fight(cell, neighbors)
       Ok(#(position, Alive(transformed_cell)))
     }
@@ -130,37 +124,31 @@ pub fn apply_rule(pos: #(Position, LocationState), neighbors) {
 }
 
 pub fn find_cradles(world) {
-  list.flat_map(
-    world,
-    fn(position_with_cell) {
-      let #(Position(x: x, y: y), _) = position_with_cell
-      [
-        Position(x - 1, y - 1),
-        Position(x, y - 1),
-        Position(x + 1, y - 1),
-        Position(x - 1, y),
-        Position(x, y),
-        Position(x + 1, y),
-        Position(x - 1, y + 1),
-        Position(x, y + 1),
-        Position(x + 1, y + 1),
-      ]
-    },
-  )
+  list.flat_map(world, fn(position_with_cell) {
+    let #(Position(x: x, y: y), _) = position_with_cell
+    [
+      Position(x - 1, y - 1),
+      Position(x, y - 1),
+      Position(x + 1, y - 1),
+      Position(x - 1, y),
+      Position(x, y),
+      Position(x + 1, y),
+      Position(x - 1, y + 1),
+      Position(x, y + 1),
+      Position(x + 1, y + 1),
+    ]
+  })
   |> list.unique
   |> list.map(fn(pos) {
     let alive =
-      list.find_map(
-        world,
-        fn(position_with_cell) {
-          let #(Position(x: x, y: y), cell) = position_with_cell
-          let Position(x: x_, y: y_) = pos
-          case x == x_ && y == y_ {
-            True -> Ok(cell)
-            False -> Error(Nil)
-          }
-        },
-      )
+      list.find_map(world, fn(position_with_cell) {
+        let #(Position(x: x, y: y), cell) = position_with_cell
+        let Position(x: x_, y: y_) = pos
+        case x == x_ && y == y_ {
+          True -> Ok(cell)
+          False -> Error(Nil)
+        }
+      })
     case alive {
       Ok(cell) -> #(pos, cell)
       Error(_) -> #(pos, Dead)
