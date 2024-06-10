@@ -1,14 +1,13 @@
 import gleam/list
+
 import lustre/attribute.{class, classes}
 import lustre/element
 import lustre/element/html
+
+import game_of_life.{find_cell}
 import types.{
   type Cell, type Msg, type Position, type Universe, type ViewPort, Alive, Dead,
   ViewPort,
-}
-
-fn find_cell(universe: Universe, position: Position) -> Cell {
-  #(position, Alive)
 }
 
 fn select_row(view_port: ViewPort, universe: Universe) -> List(Cell) {

@@ -247,6 +247,36 @@ function do_reverse(loop$remaining, loop$accumulator) {
 function reverse(xs) {
   return do_reverse(xs, toList([]));
 }
+function is_empty(list) {
+  return isEqual(list, toList([]));
+}
+function do_filter(loop$list, loop$fun, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let fun = loop$fun;
+    let acc = loop$acc;
+    if (list.hasLength(0)) {
+      return reverse(acc);
+    } else {
+      let x = list.head;
+      let xs = list.tail;
+      let new_acc = (() => {
+        let $ = fun(x);
+        if ($) {
+          return prepend(x, acc);
+        } else {
+          return acc;
+        }
+      })();
+      loop$list = xs;
+      loop$fun = fun;
+      loop$acc = new_acc;
+    }
+  }
+}
+function filter(list, predicate) {
+  return do_filter(list, predicate, toList([]));
+}
 function do_filter_map(loop$list, loop$fun, loop$acc) {
   while (true) {
     let list = loop$list;
@@ -328,6 +358,13 @@ function join2(strings, separator) {
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/bool.mjs
+function negate(bool2) {
+  if (bool2) {
+    return false;
+  } else {
+    return true;
+  }
+}
 function guard(requirement, consequence, alternative) {
   if (requirement) {
     return consequence;
@@ -948,10 +985,27 @@ function blinker() {
   return create(toList([[1, 1], [2, 1], [3, 1]]));
 }
 
-// build/dev/javascript/game_of_rps/view.mjs
-function find_cell(universe, position) {
-  return [position, new Alive()];
+// build/dev/javascript/game_of_rps/game_of_life.mjs
+function has_alive_cell(universe, position) {
+  let in_bounds = (cell) => {
+    let cell_position = cell[0];
+    return isEqual(cell_position, position);
+  };
+  let _pipe = universe;
+  let _pipe$1 = filter(_pipe, in_bounds);
+  let _pipe$2 = is_empty(_pipe$1);
+  return negate(_pipe$2);
 }
+function find_cell(universe, position) {
+  let $ = has_alive_cell(universe, position);
+  if ($) {
+    return [position, new Alive()];
+  } else {
+    return [position, new Dead()];
+  }
+}
+
+// build/dev/javascript/game_of_rps/view.mjs
 function select_row(view_port, universe) {
   let _pipe = range(view_port.x_min, view_port.x_max);
   let _pipe$1 = map(_pipe, (x) => {
