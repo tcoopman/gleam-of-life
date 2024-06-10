@@ -1824,6 +1824,9 @@ function create(positions) {
 function blinker() {
   return create(toList([[1, 1], [2, 1], [3, 1]]));
 }
+function space_ship() {
+  return create(toList([[2, 0], [0, 1], [2, 1], [1, 2], [2, 2]]));
+}
 
 // build/dev/javascript/game_of_rps/ffi.mjs
 function every(interval, cb) {
@@ -2149,12 +2152,12 @@ function every2(interval, tick) {
 function init2(_) {
   return [
     new Model(
-      blinker(),
+      space_ship(),
       toList([["blinker", blinker()]]),
       new ViewPort(0, 0, 10, 10, 35),
       true
     ),
-    every2(1e3, new Evolve())
+    every2(100, new Evolve())
   ];
 }
 function main() {

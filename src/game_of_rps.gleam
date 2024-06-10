@@ -12,12 +12,12 @@ import view.{view_universe}
 fn init(_flags) -> #(Model, Effect(Msg)) {
   #(
     Model(
-      universe: examples.blinker(),
+      universe: examples.space_ship(),
       examples: [#("blinker", examples.blinker())],
       running: True,
       view_port: ViewPort(0, 0, 10, 10, 35),
     ),
-    every(1000, Evolve),
+    every(100, Evolve),
   )
 }
 
