@@ -380,6 +380,11 @@ var Effect = class extends CustomType {
     this.all = all;
   }
 };
+function from2(effect) {
+  return new Effect(toList([(dispatch, _) => {
+    return effect(dispatch);
+  }]));
+}
 function none() {
   return new Effect(toList([]));
 }
@@ -923,15 +928,6 @@ var NotABrowser = class extends CustomType {
 function application(init3, update3, view2) {
   return new App(init3, update3, view2, new None());
 }
-function simple(init3, update3, view2) {
-  let init$1 = (flags) => {
-    return [init3(flags), none()];
-  };
-  let update$1 = (model, msg) => {
-    return [update3(model, msg), none()];
-  };
-  return application(init$1, update$1, view2);
-}
 function start3(app, selector, flags) {
   return guard(
     !is_browser(),
@@ -974,6 +970,8 @@ var Model = class extends CustomType {
     this.running = running;
   }
 };
+var Evolve = class extends CustomType {
+};
 
 // build/dev/javascript/game_of_rps/examples.mjs
 function create(positions) {
@@ -983,6 +981,11 @@ function create(positions) {
 }
 function blinker() {
   return create(toList([[1, 1], [2, 1], [3, 1]]));
+}
+
+// build/dev/javascript/game_of_rps/ffi.mjs
+function every(interval, cb) {
+  window.setInterval(cb, interval);
 }
 
 // build/dev/javascript/game_of_rps/game_of_life.mjs
@@ -1061,14 +1064,6 @@ function view_universe(view_port, universe) {
 }
 
 // build/dev/javascript/game_of_rps/game_of_rps.mjs
-function init2(_) {
-  return new Model(
-    blinker(),
-    toList([["blinker", blinker()]]),
-    new ViewPort(0, 0, 10, 10, 35),
-    true
-  );
-}
 function header() {
   return div(
     toList([class$("bg-green-200")]),
@@ -1086,16 +1081,36 @@ function view(model) {
   );
 }
 function update2(model, msg) {
-  return model;
+  return [model, none()];
+}
+function every2(interval, tick) {
+  return from2(
+    (dispatch) => {
+      return every(interval, () => {
+        return dispatch(tick);
+      });
+    }
+  );
+}
+function init2(_) {
+  return [
+    new Model(
+      blinker(),
+      toList([["blinker", blinker()]]),
+      new ViewPort(0, 0, 10, 10, 35),
+      true
+    ),
+    every2(500, new Evolve())
+  ];
 }
 function main() {
-  let app = simple(init2, update2, view);
+  let app = application(init2, update2, view);
   let $ = start3(app, "#app", void 0);
   if (!$.isOk()) {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      36,
+      41,
       "main",
       "Assignment pattern did not match",
       { value: $ }
