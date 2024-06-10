@@ -1,20 +1,30 @@
+import examples
 import lustre
 import lustre/attribute.{class}
 import lustre/element
 import lustre/element/html
-
-type Model {
-  Model(running: Bool)
-}
-
-type Msg
+import types.{type Model, type Msg, Model, ViewPort}
+import view.{view_universe}
 
 fn init(_flags) -> Model {
-  Model(running: False)
+  Model(
+    universe: examples.blinker(),
+    examples: [#("blinker", examples.blinker())],
+    running: True,
+    view_port: ViewPort(0, 0, 10, 10, 35),
+  )
 }
 
 fn view(model: Model) -> element.Element(Msg) {
-  html.div([class("bg-green-500 p-4")], [html.text("running")])
+  html.div([class("m-4")], [
+    header(),
+    html.div([], []),
+    view_universe(model.view_port, model.universe),
+  ])
+}
+
+fn header() -> element.Element(Msg) {
+  html.div([class("bg-green-200")], [html.text("header")])
 }
 
 fn update(model: Model, msg: Msg) -> Model {

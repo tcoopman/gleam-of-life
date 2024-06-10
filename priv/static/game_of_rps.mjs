@@ -46,6 +46,9 @@ var List = class {
     return length2;
   }
 };
+function prepend(element2, tail) {
+  return new NonEmpty(element2, tail);
+}
 function toList(elements, tail) {
   return List.fromArray(elements, tail);
 }
@@ -192,10 +195,136 @@ var MIN_ARRAY_NODE = BUCKET_SIZE / 4;
 function identity(x) {
   return x;
 }
+function join(xs, separator) {
+  const iterator = xs[Symbol.iterator]();
+  let result = iterator.next().value || "";
+  let current = iterator.next();
+  while (!current.done) {
+    result = result + separator + current.value;
+    current = iterator.next();
+  }
+  return result;
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/order.mjs
+var Lt = class extends CustomType {
+};
+var Eq = class extends CustomType {
+};
+var Gt = class extends CustomType {
+};
+
+// build/dev/javascript/gleam_stdlib/gleam/int.mjs
+function compare(a, b) {
+  let $ = a === b;
+  if ($) {
+    return new Eq();
+  } else {
+    let $1 = a < b;
+    if ($1) {
+      return new Lt();
+    } else {
+      return new Gt();
+    }
+  }
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/list.mjs
+function do_reverse(loop$remaining, loop$accumulator) {
+  while (true) {
+    let remaining = loop$remaining;
+    let accumulator = loop$accumulator;
+    if (remaining.hasLength(0)) {
+      return accumulator;
+    } else {
+      let item = remaining.head;
+      let rest$1 = remaining.tail;
+      loop$remaining = rest$1;
+      loop$accumulator = prepend(item, accumulator);
+    }
+  }
+}
+function reverse(xs) {
+  return do_reverse(xs, toList([]));
+}
+function do_filter_map(loop$list, loop$fun, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let fun = loop$fun;
+    let acc = loop$acc;
+    if (list.hasLength(0)) {
+      return reverse(acc);
+    } else {
+      let x = list.head;
+      let xs = list.tail;
+      let new_acc = (() => {
+        let $ = fun(x);
+        if ($.isOk()) {
+          let x$1 = $[0];
+          return prepend(x$1, acc);
+        } else {
+          return acc;
+        }
+      })();
+      loop$list = xs;
+      loop$fun = fun;
+      loop$acc = new_acc;
+    }
+  }
+}
+function filter_map(list, fun) {
+  return do_filter_map(list, fun, toList([]));
+}
+function do_map(loop$list, loop$fun, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let fun = loop$fun;
+    let acc = loop$acc;
+    if (list.hasLength(0)) {
+      return reverse(acc);
+    } else {
+      let x = list.head;
+      let xs = list.tail;
+      loop$list = xs;
+      loop$fun = fun;
+      loop$acc = prepend(fun(x), acc);
+    }
+  }
+}
+function map(list, fun) {
+  return do_map(list, fun, toList([]));
+}
+function tail_recursive_range(loop$start, loop$stop, loop$acc) {
+  while (true) {
+    let start4 = loop$start;
+    let stop = loop$stop;
+    let acc = loop$acc;
+    let $ = compare(start4, stop);
+    if ($ instanceof Eq) {
+      return prepend(stop, acc);
+    } else if ($ instanceof Gt) {
+      loop$start = start4;
+      loop$stop = stop + 1;
+      loop$acc = prepend(stop, acc);
+    } else {
+      loop$start = start4;
+      loop$stop = stop - 1;
+      loop$acc = prepend(stop, acc);
+    }
+  }
+}
+function range(start4, stop) {
+  return tail_recursive_range(start4, stop, toList([]));
+}
 
 // build/dev/javascript/gleam_stdlib/gleam/dynamic.mjs
 function from(a) {
   return identity(a);
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/string.mjs
+function join2(strings, separator) {
+  return join(strings, separator);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/bool.mjs
@@ -252,6 +381,26 @@ function attribute(name, value) {
 }
 function class$(name) {
   return attribute("class", name);
+}
+function classes(names) {
+  return attribute(
+    "class",
+    (() => {
+      let _pipe = names;
+      let _pipe$1 = filter_map(
+        _pipe,
+        (class$2) => {
+          let $ = class$2[1];
+          if ($) {
+            return new Ok(class$2[0]);
+          } else {
+            return new Error(void 0);
+          }
+        }
+      );
+      return join2(_pipe$1, " ");
+    })()
+  );
 }
 
 // build/dev/javascript/lustre/lustre/element.mjs
@@ -764,20 +913,122 @@ function div(attrs, children) {
   return element("div", attrs, children);
 }
 
-// build/dev/javascript/game_of_rps/game_of_rps.mjs
-var Model = class extends CustomType {
-  constructor(running) {
+// build/dev/javascript/game_of_rps/types.mjs
+var Alive = class extends CustomType {
+};
+var Dead = class extends CustomType {
+};
+var ViewPort = class extends CustomType {
+  constructor(x_min, y_min, x_max, y_max, cell_size) {
     super();
+    this.x_min = x_min;
+    this.y_min = y_min;
+    this.x_max = x_max;
+    this.y_max = y_max;
+    this.cell_size = cell_size;
+  }
+};
+var Model = class extends CustomType {
+  constructor(universe, examples, view_port, running) {
+    super();
+    this.universe = universe;
+    this.examples = examples;
+    this.view_port = view_port;
     this.running = running;
   }
 };
+
+// build/dev/javascript/game_of_rps/examples.mjs
+function create(positions) {
+  return map(positions, (position) => {
+    return [position, new Alive()];
+  });
+}
+function blinker() {
+  return create(toList([[1, 1], [2, 1], [3, 1]]));
+}
+
+// build/dev/javascript/game_of_rps/view.mjs
+function find_cell(universe, position) {
+  return [position, new Alive()];
+}
+function select_row(view_port, universe) {
+  let _pipe = range(view_port.x_min, view_port.x_max);
+  let _pipe$1 = map(_pipe, (x) => {
+    return [x, view_port.y_min];
+  });
+  return map(
+    _pipe$1,
+    (_capture) => {
+      return find_cell(universe, _capture);
+    }
+  );
+}
+function view_cell(size, cell) {
+  let status = cell[1];
+  return div(
+    toList([
+      classes(
+        toList([
+          ["flex w-4 h-4 border-gray-400 m-1", true],
+          ["bg-green-500", isEqual(status, new Alive())],
+          ["bg-red-500", isEqual(status, new Dead())]
+        ])
+      )
+    ]),
+    toList([])
+  );
+}
+function view_row(view_port, universe) {
+  let row = select_row(view_port, universe);
+  return div(
+    toList([class$("flex")]),
+    map(
+      row,
+      (_capture) => {
+        return view_cell(view_port.cell_size, _capture);
+      }
+    )
+  );
+}
+function view_universe(view_port, universe) {
+  let rows_range = range(view_port.y_min, view_port.y_max);
+  let row_view_port = (row) => {
+    return view_port.withFields({ y_min: row, y_max: row });
+  };
+  let rows_view_port = map(rows_range, row_view_port);
+  let rows = map(
+    rows_view_port,
+    (_capture) => {
+      return view_row(_capture, universe);
+    }
+  );
+  return div(toList([]), rows);
+}
+
+// build/dev/javascript/game_of_rps/game_of_rps.mjs
 function init2(_) {
-  return new Model(false);
+  return new Model(
+    blinker(),
+    toList([["blinker", blinker()]]),
+    new ViewPort(0, 0, 10, 10, 35),
+    true
+  );
+}
+function header() {
+  return div(
+    toList([class$("bg-green-200")]),
+    toList([text2("header")])
+  );
 }
 function view(model) {
   return div(
-    toList([class$("bg-green-500 p-4")]),
-    toList([text2("running")])
+    toList([class$("m-4")]),
+    toList([
+      header(),
+      div(toList([]), toList([])),
+      view_universe(model.view_port, model.universe)
+    ])
   );
 }
 function update2(model, msg) {
@@ -790,7 +1041,7 @@ function main() {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      26,
+      36,
       "main",
       "Assignment pattern did not match",
       { value: $ }
