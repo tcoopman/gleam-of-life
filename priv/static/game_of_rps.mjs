@@ -188,6 +188,16 @@ var MASK = BUCKET_SIZE - 1;
 var MAX_INDEX_NODE = BUCKET_SIZE / 2;
 var MIN_ARRAY_NODE = BUCKET_SIZE / 4;
 
+// build/dev/javascript/gleam_stdlib/gleam_stdlib.mjs
+function identity(x) {
+  return x;
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/dynamic.mjs
+function from(a) {
+  return identity(a);
+}
+
 // build/dev/javascript/gleam_stdlib/gleam/bool.mjs
 function guard(requirement, consequence, alternative) {
   if (requirement) {
@@ -215,8 +225,69 @@ var Text = class extends CustomType {
     this.content = content;
   }
 };
+var Element = class extends CustomType {
+  constructor(key, namespace, tag, attrs, children, self_closing, void$) {
+    super();
+    this.key = key;
+    this.namespace = namespace;
+    this.tag = tag;
+    this.attrs = attrs;
+    this.children = children;
+    this.self_closing = self_closing;
+    this.void = void$;
+  }
+};
+var Attribute = class extends CustomType {
+  constructor(x0, x1, as_property) {
+    super();
+    this[0] = x0;
+    this[1] = x1;
+    this.as_property = as_property;
+  }
+};
+
+// build/dev/javascript/lustre/lustre/attribute.mjs
+function attribute(name, value) {
+  return new Attribute(name, from(value), false);
+}
+function class$(name) {
+  return attribute("class", name);
+}
 
 // build/dev/javascript/lustre/lustre/element.mjs
+function element(tag, attrs, children) {
+  if (tag === "area") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "base") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "br") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "col") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "embed") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "hr") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "img") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "input") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "link") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "meta") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "param") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "source") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "track") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else if (tag === "wbr") {
+    return new Element("", "", tag, attrs, toList([]), false, true);
+  } else {
+    return new Element("", "", tag, attrs, children, false, false);
+  }
+}
 function text(content) {
   return new Text(content);
 }
@@ -526,19 +597,19 @@ var LustreClientApplication2 = class _LustreClientApplication {
   #model = null;
   #update = null;
   #view = null;
-  static start(flags, selector, init2, update2, view) {
+  static start(flags, selector, init3, update3, view2) {
     if (!is_browser())
       return new Error(new NotABrowser());
     const root2 = selector instanceof HTMLElement ? selector : document.querySelector(selector);
     if (!root2)
       return new Error(new ElementNotFound(selector));
-    const app = new _LustreClientApplication(init2(flags), update2, view, root2);
+    const app = new _LustreClientApplication(init3(flags), update3, view2, root2);
     return new Ok((msg) => app.send(msg));
   }
-  constructor([model, effects], update2, view, root2 = document.body, isComponent = false) {
+  constructor([model, effects], update3, view2, root2 = document.body, isComponent = false) {
     this.#model = model;
-    this.#update = update2;
-    this.#view = view;
+    this.#update = update3;
+    this.#view = view2;
     this.#root = root2;
     this.#effects = effects.all.toArray();
     this.#didUpdate = true;
@@ -647,11 +718,11 @@ var is_browser = () => window && window.document;
 
 // build/dev/javascript/lustre/lustre.mjs
 var App = class extends CustomType {
-  constructor(init2, update2, view, on_attribute_change) {
+  constructor(init3, update3, view2, on_attribute_change) {
     super();
-    this.init = init2;
-    this.update = update2;
-    this.view = view;
+    this.init = init3;
+    this.update = update3;
+    this.view = view2;
     this.on_attribute_change = on_attribute_change;
   }
 };
@@ -663,20 +734,17 @@ var ElementNotFound = class extends CustomType {
 };
 var NotABrowser = class extends CustomType {
 };
-function application(init2, update2, view) {
-  return new App(init2, update2, view, new None());
+function application(init3, update3, view2) {
+  return new App(init3, update3, view2, new None());
 }
-function element(html) {
-  let init2 = (_) => {
-    return [void 0, none()];
+function simple(init3, update3, view2) {
+  let init$1 = (flags) => {
+    return [init3(flags), none()];
   };
-  let update2 = (_, _1) => {
-    return [void 0, none()];
+  let update$1 = (model, msg) => {
+    return [update3(model, msg), none()];
   };
-  let view = (_) => {
-    return html;
-  };
-  return application(init2, update2, view);
+  return application(init$1, update$1, view2);
 }
 function start3(app, selector, flags) {
   return guard(
@@ -688,15 +756,41 @@ function start3(app, selector, flags) {
   );
 }
 
+// build/dev/javascript/lustre/lustre/element/html.mjs
+function text2(content) {
+  return text(content);
+}
+function div(attrs, children) {
+  return element("div", attrs, children);
+}
+
 // build/dev/javascript/game_of_rps/game_of_rps.mjs
+var Model = class extends CustomType {
+  constructor(running) {
+    super();
+    this.running = running;
+  }
+};
+function init2(_) {
+  return new Model(false);
+}
+function view(model) {
+  return div(
+    toList([class$("bg-green-500 p-4")]),
+    toList([text2("running")])
+  );
+}
+function update2(model, msg) {
+  return model;
+}
 function main() {
-  let app = element(text("Hello, world!"));
+  let app = simple(init2, update2, view);
   let $ = start3(app, "#app", void 0);
   if (!$.isOk()) {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      6,
+      26,
       "main",
       "Assignment pattern did not match",
       { value: $ }
