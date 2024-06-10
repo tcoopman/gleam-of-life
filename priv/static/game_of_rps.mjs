@@ -40,10 +40,10 @@ var List = class {
     return desired === 0;
   }
   countLength() {
-    let length2 = 0;
+    let length3 = 0;
     for (let _ of this)
-      length2++;
-    return length2;
+      length3++;
+    return length3;
   }
 };
 function prepend(element2, tail) {
@@ -180,16 +180,711 @@ function makeError(variant, module, line, fn, message, extra) {
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/option.mjs
+var Some = class extends CustomType {
+  constructor(x0) {
+    super();
+    this[0] = x0;
+  }
+};
 var None = class extends CustomType {
 };
 
 // build/dev/javascript/gleam_stdlib/dict.mjs
+var referenceMap = /* @__PURE__ */ new WeakMap();
 var tempDataView = new DataView(new ArrayBuffer(8));
+var referenceUID = 0;
+function hashByReference(o) {
+  const known = referenceMap.get(o);
+  if (known !== void 0) {
+    return known;
+  }
+  const hash = referenceUID++;
+  if (referenceUID === 2147483647) {
+    referenceUID = 0;
+  }
+  referenceMap.set(o, hash);
+  return hash;
+}
+function hashMerge(a, b) {
+  return a ^ b + 2654435769 + (a << 6) + (a >> 2) | 0;
+}
+function hashString(s) {
+  let hash = 0;
+  const len = s.length;
+  for (let i = 0; i < len; i++) {
+    hash = Math.imul(31, hash) + s.charCodeAt(i) | 0;
+  }
+  return hash;
+}
+function hashNumber(n) {
+  tempDataView.setFloat64(0, n);
+  const i = tempDataView.getInt32(0);
+  const j = tempDataView.getInt32(4);
+  return Math.imul(73244475, i >> 16 ^ i) ^ j;
+}
+function hashBigInt(n) {
+  return hashString(n.toString());
+}
+function hashObject(o) {
+  const proto = Object.getPrototypeOf(o);
+  if (proto !== null && typeof proto.hashCode === "function") {
+    try {
+      const code = o.hashCode(o);
+      if (typeof code === "number") {
+        return code;
+      }
+    } catch {
+    }
+  }
+  if (o instanceof Promise || o instanceof WeakSet || o instanceof WeakMap) {
+    return hashByReference(o);
+  }
+  if (o instanceof Date) {
+    return hashNumber(o.getTime());
+  }
+  let h = 0;
+  if (o instanceof ArrayBuffer) {
+    o = new Uint8Array(o);
+  }
+  if (Array.isArray(o) || o instanceof Uint8Array) {
+    for (let i = 0; i < o.length; i++) {
+      h = Math.imul(31, h) + getHash(o[i]) | 0;
+    }
+  } else if (o instanceof Set) {
+    o.forEach((v) => {
+      h = h + getHash(v) | 0;
+    });
+  } else if (o instanceof Map) {
+    o.forEach((v, k) => {
+      h = h + hashMerge(getHash(v), getHash(k)) | 0;
+    });
+  } else {
+    const keys2 = Object.keys(o);
+    for (let i = 0; i < keys2.length; i++) {
+      const k = keys2[i];
+      const v = o[k];
+      h = h + hashMerge(getHash(v), hashString(k)) | 0;
+    }
+  }
+  return h;
+}
+function getHash(u) {
+  if (u === null)
+    return 1108378658;
+  if (u === void 0)
+    return 1108378659;
+  if (u === true)
+    return 1108378657;
+  if (u === false)
+    return 1108378656;
+  switch (typeof u) {
+    case "number":
+      return hashNumber(u);
+    case "string":
+      return hashString(u);
+    case "bigint":
+      return hashBigInt(u);
+    case "object":
+      return hashObject(u);
+    case "symbol":
+      return hashByReference(u);
+    case "function":
+      return hashByReference(u);
+    default:
+      return 0;
+  }
+}
 var SHIFT = 5;
 var BUCKET_SIZE = Math.pow(2, SHIFT);
 var MASK = BUCKET_SIZE - 1;
 var MAX_INDEX_NODE = BUCKET_SIZE / 2;
 var MIN_ARRAY_NODE = BUCKET_SIZE / 4;
+var ENTRY = 0;
+var ARRAY_NODE = 1;
+var INDEX_NODE = 2;
+var COLLISION_NODE = 3;
+var EMPTY = {
+  type: INDEX_NODE,
+  bitmap: 0,
+  array: []
+};
+function mask(hash, shift) {
+  return hash >>> shift & MASK;
+}
+function bitpos(hash, shift) {
+  return 1 << mask(hash, shift);
+}
+function bitcount(x) {
+  x -= x >> 1 & 1431655765;
+  x = (x & 858993459) + (x >> 2 & 858993459);
+  x = x + (x >> 4) & 252645135;
+  x += x >> 8;
+  x += x >> 16;
+  return x & 127;
+}
+function index(bitmap, bit) {
+  return bitcount(bitmap & bit - 1);
+}
+function cloneAndSet(arr, at, val) {
+  const len = arr.length;
+  const out = new Array(len);
+  for (let i = 0; i < len; ++i) {
+    out[i] = arr[i];
+  }
+  out[at] = val;
+  return out;
+}
+function spliceIn(arr, at, val) {
+  const len = arr.length;
+  const out = new Array(len + 1);
+  let i = 0;
+  let g = 0;
+  while (i < at) {
+    out[g++] = arr[i++];
+  }
+  out[g++] = val;
+  while (i < len) {
+    out[g++] = arr[i++];
+  }
+  return out;
+}
+function spliceOut(arr, at) {
+  const len = arr.length;
+  const out = new Array(len - 1);
+  let i = 0;
+  let g = 0;
+  while (i < at) {
+    out[g++] = arr[i++];
+  }
+  ++i;
+  while (i < len) {
+    out[g++] = arr[i++];
+  }
+  return out;
+}
+function createNode(shift, key1, val1, key2hash, key2, val2) {
+  const key1hash = getHash(key1);
+  if (key1hash === key2hash) {
+    return {
+      type: COLLISION_NODE,
+      hash: key1hash,
+      array: [
+        { type: ENTRY, k: key1, v: val1 },
+        { type: ENTRY, k: key2, v: val2 }
+      ]
+    };
+  }
+  const addedLeaf = { val: false };
+  return assoc(
+    assocIndex(EMPTY, shift, key1hash, key1, val1, addedLeaf),
+    shift,
+    key2hash,
+    key2,
+    val2,
+    addedLeaf
+  );
+}
+function assoc(root2, shift, hash, key, val, addedLeaf) {
+  switch (root2.type) {
+    case ARRAY_NODE:
+      return assocArray(root2, shift, hash, key, val, addedLeaf);
+    case INDEX_NODE:
+      return assocIndex(root2, shift, hash, key, val, addedLeaf);
+    case COLLISION_NODE:
+      return assocCollision(root2, shift, hash, key, val, addedLeaf);
+  }
+}
+function assocArray(root2, shift, hash, key, val, addedLeaf) {
+  const idx = mask(hash, shift);
+  const node = root2.array[idx];
+  if (node === void 0) {
+    addedLeaf.val = true;
+    return {
+      type: ARRAY_NODE,
+      size: root2.size + 1,
+      array: cloneAndSet(root2.array, idx, { type: ENTRY, k: key, v: val })
+    };
+  }
+  if (node.type === ENTRY) {
+    if (isEqual(key, node.k)) {
+      if (val === node.v) {
+        return root2;
+      }
+      return {
+        type: ARRAY_NODE,
+        size: root2.size,
+        array: cloneAndSet(root2.array, idx, {
+          type: ENTRY,
+          k: key,
+          v: val
+        })
+      };
+    }
+    addedLeaf.val = true;
+    return {
+      type: ARRAY_NODE,
+      size: root2.size,
+      array: cloneAndSet(
+        root2.array,
+        idx,
+        createNode(shift + SHIFT, node.k, node.v, hash, key, val)
+      )
+    };
+  }
+  const n = assoc(node, shift + SHIFT, hash, key, val, addedLeaf);
+  if (n === node) {
+    return root2;
+  }
+  return {
+    type: ARRAY_NODE,
+    size: root2.size,
+    array: cloneAndSet(root2.array, idx, n)
+  };
+}
+function assocIndex(root2, shift, hash, key, val, addedLeaf) {
+  const bit = bitpos(hash, shift);
+  const idx = index(root2.bitmap, bit);
+  if ((root2.bitmap & bit) !== 0) {
+    const node = root2.array[idx];
+    if (node.type !== ENTRY) {
+      const n = assoc(node, shift + SHIFT, hash, key, val, addedLeaf);
+      if (n === node) {
+        return root2;
+      }
+      return {
+        type: INDEX_NODE,
+        bitmap: root2.bitmap,
+        array: cloneAndSet(root2.array, idx, n)
+      };
+    }
+    const nodeKey = node.k;
+    if (isEqual(key, nodeKey)) {
+      if (val === node.v) {
+        return root2;
+      }
+      return {
+        type: INDEX_NODE,
+        bitmap: root2.bitmap,
+        array: cloneAndSet(root2.array, idx, {
+          type: ENTRY,
+          k: key,
+          v: val
+        })
+      };
+    }
+    addedLeaf.val = true;
+    return {
+      type: INDEX_NODE,
+      bitmap: root2.bitmap,
+      array: cloneAndSet(
+        root2.array,
+        idx,
+        createNode(shift + SHIFT, nodeKey, node.v, hash, key, val)
+      )
+    };
+  } else {
+    const n = root2.array.length;
+    if (n >= MAX_INDEX_NODE) {
+      const nodes = new Array(32);
+      const jdx = mask(hash, shift);
+      nodes[jdx] = assocIndex(EMPTY, shift + SHIFT, hash, key, val, addedLeaf);
+      let j = 0;
+      let bitmap = root2.bitmap;
+      for (let i = 0; i < 32; i++) {
+        if ((bitmap & 1) !== 0) {
+          const node = root2.array[j++];
+          nodes[i] = node;
+        }
+        bitmap = bitmap >>> 1;
+      }
+      return {
+        type: ARRAY_NODE,
+        size: n + 1,
+        array: nodes
+      };
+    } else {
+      const newArray = spliceIn(root2.array, idx, {
+        type: ENTRY,
+        k: key,
+        v: val
+      });
+      addedLeaf.val = true;
+      return {
+        type: INDEX_NODE,
+        bitmap: root2.bitmap | bit,
+        array: newArray
+      };
+    }
+  }
+}
+function assocCollision(root2, shift, hash, key, val, addedLeaf) {
+  if (hash === root2.hash) {
+    const idx = collisionIndexOf(root2, key);
+    if (idx !== -1) {
+      const entry = root2.array[idx];
+      if (entry.v === val) {
+        return root2;
+      }
+      return {
+        type: COLLISION_NODE,
+        hash,
+        array: cloneAndSet(root2.array, idx, { type: ENTRY, k: key, v: val })
+      };
+    }
+    const size = root2.array.length;
+    addedLeaf.val = true;
+    return {
+      type: COLLISION_NODE,
+      hash,
+      array: cloneAndSet(root2.array, size, { type: ENTRY, k: key, v: val })
+    };
+  }
+  return assoc(
+    {
+      type: INDEX_NODE,
+      bitmap: bitpos(root2.hash, shift),
+      array: [root2]
+    },
+    shift,
+    hash,
+    key,
+    val,
+    addedLeaf
+  );
+}
+function collisionIndexOf(root2, key) {
+  const size = root2.array.length;
+  for (let i = 0; i < size; i++) {
+    if (isEqual(key, root2.array[i].k)) {
+      return i;
+    }
+  }
+  return -1;
+}
+function find(root2, shift, hash, key) {
+  switch (root2.type) {
+    case ARRAY_NODE:
+      return findArray(root2, shift, hash, key);
+    case INDEX_NODE:
+      return findIndex(root2, shift, hash, key);
+    case COLLISION_NODE:
+      return findCollision(root2, key);
+  }
+}
+function findArray(root2, shift, hash, key) {
+  const idx = mask(hash, shift);
+  const node = root2.array[idx];
+  if (node === void 0) {
+    return void 0;
+  }
+  if (node.type !== ENTRY) {
+    return find(node, shift + SHIFT, hash, key);
+  }
+  if (isEqual(key, node.k)) {
+    return node;
+  }
+  return void 0;
+}
+function findIndex(root2, shift, hash, key) {
+  const bit = bitpos(hash, shift);
+  if ((root2.bitmap & bit) === 0) {
+    return void 0;
+  }
+  const idx = index(root2.bitmap, bit);
+  const node = root2.array[idx];
+  if (node.type !== ENTRY) {
+    return find(node, shift + SHIFT, hash, key);
+  }
+  if (isEqual(key, node.k)) {
+    return node;
+  }
+  return void 0;
+}
+function findCollision(root2, key) {
+  const idx = collisionIndexOf(root2, key);
+  if (idx < 0) {
+    return void 0;
+  }
+  return root2.array[idx];
+}
+function without(root2, shift, hash, key) {
+  switch (root2.type) {
+    case ARRAY_NODE:
+      return withoutArray(root2, shift, hash, key);
+    case INDEX_NODE:
+      return withoutIndex(root2, shift, hash, key);
+    case COLLISION_NODE:
+      return withoutCollision(root2, key);
+  }
+}
+function withoutArray(root2, shift, hash, key) {
+  const idx = mask(hash, shift);
+  const node = root2.array[idx];
+  if (node === void 0) {
+    return root2;
+  }
+  let n = void 0;
+  if (node.type === ENTRY) {
+    if (!isEqual(node.k, key)) {
+      return root2;
+    }
+  } else {
+    n = without(node, shift + SHIFT, hash, key);
+    if (n === node) {
+      return root2;
+    }
+  }
+  if (n === void 0) {
+    if (root2.size <= MIN_ARRAY_NODE) {
+      const arr = root2.array;
+      const out = new Array(root2.size - 1);
+      let i = 0;
+      let j = 0;
+      let bitmap = 0;
+      while (i < idx) {
+        const nv = arr[i];
+        if (nv !== void 0) {
+          out[j] = nv;
+          bitmap |= 1 << i;
+          ++j;
+        }
+        ++i;
+      }
+      ++i;
+      while (i < arr.length) {
+        const nv = arr[i];
+        if (nv !== void 0) {
+          out[j] = nv;
+          bitmap |= 1 << i;
+          ++j;
+        }
+        ++i;
+      }
+      return {
+        type: INDEX_NODE,
+        bitmap,
+        array: out
+      };
+    }
+    return {
+      type: ARRAY_NODE,
+      size: root2.size - 1,
+      array: cloneAndSet(root2.array, idx, n)
+    };
+  }
+  return {
+    type: ARRAY_NODE,
+    size: root2.size,
+    array: cloneAndSet(root2.array, idx, n)
+  };
+}
+function withoutIndex(root2, shift, hash, key) {
+  const bit = bitpos(hash, shift);
+  if ((root2.bitmap & bit) === 0) {
+    return root2;
+  }
+  const idx = index(root2.bitmap, bit);
+  const node = root2.array[idx];
+  if (node.type !== ENTRY) {
+    const n = without(node, shift + SHIFT, hash, key);
+    if (n === node) {
+      return root2;
+    }
+    if (n !== void 0) {
+      return {
+        type: INDEX_NODE,
+        bitmap: root2.bitmap,
+        array: cloneAndSet(root2.array, idx, n)
+      };
+    }
+    if (root2.bitmap === bit) {
+      return void 0;
+    }
+    return {
+      type: INDEX_NODE,
+      bitmap: root2.bitmap ^ bit,
+      array: spliceOut(root2.array, idx)
+    };
+  }
+  if (isEqual(key, node.k)) {
+    if (root2.bitmap === bit) {
+      return void 0;
+    }
+    return {
+      type: INDEX_NODE,
+      bitmap: root2.bitmap ^ bit,
+      array: spliceOut(root2.array, idx)
+    };
+  }
+  return root2;
+}
+function withoutCollision(root2, key) {
+  const idx = collisionIndexOf(root2, key);
+  if (idx < 0) {
+    return root2;
+  }
+  if (root2.array.length === 1) {
+    return void 0;
+  }
+  return {
+    type: COLLISION_NODE,
+    hash: root2.hash,
+    array: spliceOut(root2.array, idx)
+  };
+}
+function forEach(root2, fn) {
+  if (root2 === void 0) {
+    return;
+  }
+  const items = root2.array;
+  const size = items.length;
+  for (let i = 0; i < size; i++) {
+    const item = items[i];
+    if (item === void 0) {
+      continue;
+    }
+    if (item.type === ENTRY) {
+      fn(item.v, item.k);
+      continue;
+    }
+    forEach(item, fn);
+  }
+}
+var Dict = class _Dict {
+  /**
+   * @template V
+   * @param {Record<string,V>} o
+   * @returns {Dict<string,V>}
+   */
+  static fromObject(o) {
+    const keys2 = Object.keys(o);
+    let m = _Dict.new();
+    for (let i = 0; i < keys2.length; i++) {
+      const k = keys2[i];
+      m = m.set(k, o[k]);
+    }
+    return m;
+  }
+  /**
+   * @template K,V
+   * @param {Map<K,V>} o
+   * @returns {Dict<K,V>}
+   */
+  static fromMap(o) {
+    let m = _Dict.new();
+    o.forEach((v, k) => {
+      m = m.set(k, v);
+    });
+    return m;
+  }
+  static new() {
+    return new _Dict(void 0, 0);
+  }
+  /**
+   * @param {undefined | Node<K,V>} root
+   * @param {number} size
+   */
+  constructor(root2, size) {
+    this.root = root2;
+    this.size = size;
+  }
+  /**
+   * @template NotFound
+   * @param {K} key
+   * @param {NotFound} notFound
+   * @returns {NotFound | V}
+   */
+  get(key, notFound) {
+    if (this.root === void 0) {
+      return notFound;
+    }
+    const found = find(this.root, 0, getHash(key), key);
+    if (found === void 0) {
+      return notFound;
+    }
+    return found.v;
+  }
+  /**
+   * @param {K} key
+   * @param {V} val
+   * @returns {Dict<K,V>}
+   */
+  set(key, val) {
+    const addedLeaf = { val: false };
+    const root2 = this.root === void 0 ? EMPTY : this.root;
+    const newRoot = assoc(root2, 0, getHash(key), key, val, addedLeaf);
+    if (newRoot === this.root) {
+      return this;
+    }
+    return new _Dict(newRoot, addedLeaf.val ? this.size + 1 : this.size);
+  }
+  /**
+   * @param {K} key
+   * @returns {Dict<K,V>}
+   */
+  delete(key) {
+    if (this.root === void 0) {
+      return this;
+    }
+    const newRoot = without(this.root, 0, getHash(key), key);
+    if (newRoot === this.root) {
+      return this;
+    }
+    if (newRoot === void 0) {
+      return _Dict.new();
+    }
+    return new _Dict(newRoot, this.size - 1);
+  }
+  /**
+   * @param {K} key
+   * @returns {boolean}
+   */
+  has(key) {
+    if (this.root === void 0) {
+      return false;
+    }
+    return find(this.root, 0, getHash(key), key) !== void 0;
+  }
+  /**
+   * @returns {[K,V][]}
+   */
+  entries() {
+    if (this.root === void 0) {
+      return [];
+    }
+    const result = [];
+    this.forEach((v, k) => result.push([k, v]));
+    return result;
+  }
+  /**
+   *
+   * @param {(val:V,key:K)=>void} fn
+   */
+  forEach(fn) {
+    forEach(this.root, fn);
+  }
+  hashCode() {
+    let h = 0;
+    this.forEach((v, k) => {
+      h = h + hashMerge(getHash(v), getHash(k)) | 0;
+    });
+    return h;
+  }
+  /**
+   * @param {unknown} o
+   * @returns {boolean}
+   */
+  equals(o) {
+    if (!(o instanceof _Dict) || this.size !== o.size) {
+      return false;
+    }
+    let equal = true;
+    this.forEach((v, k) => {
+      equal = equal && isEqual(o.get(k, !v), v);
+    });
+    return equal;
+  }
+};
 
 // build/dev/javascript/gleam_stdlib/gleam_stdlib.mjs
 function identity(x) {
@@ -205,6 +900,58 @@ function join(xs, separator) {
   }
   return result;
 }
+function new_map() {
+  return Dict.new();
+}
+function map_to_list(map4) {
+  return List.fromArray(map4.entries());
+}
+function map_insert(key, value, map4) {
+  return map4.set(key, value);
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/dict.mjs
+function new$() {
+  return new_map();
+}
+function insert(dict, key, value) {
+  return map_insert(key, value, dict);
+}
+function reverse_and_concat(loop$remaining, loop$accumulator) {
+  while (true) {
+    let remaining = loop$remaining;
+    let accumulator = loop$accumulator;
+    if (remaining.hasLength(0)) {
+      return accumulator;
+    } else {
+      let item = remaining.head;
+      let rest = remaining.tail;
+      loop$remaining = rest;
+      loop$accumulator = prepend(item, accumulator);
+    }
+  }
+}
+function do_keys_acc(loop$list, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let acc = loop$acc;
+    if (list.hasLength(0)) {
+      return reverse_and_concat(acc, toList([]));
+    } else {
+      let x = list.head;
+      let xs = list.tail;
+      loop$list = xs;
+      loop$acc = prepend(x[0], acc);
+    }
+  }
+}
+function do_keys(dict) {
+  let list_of_pairs = map_to_list(dict);
+  return do_keys_acc(list_of_pairs, toList([]));
+}
+function keys(dict) {
+  return do_keys(dict);
+}
 
 // build/dev/javascript/gleam_stdlib/gleam/order.mjs
 var Lt = class extends CustomType {
@@ -215,6 +962,14 @@ var Gt = class extends CustomType {
 };
 
 // build/dev/javascript/gleam_stdlib/gleam/int.mjs
+function absolute_value(x) {
+  let $ = x >= 0;
+  if ($) {
+    return x;
+  } else {
+    return x * -1;
+  }
+}
 function compare(a, b) {
   let $ = a === b;
   if ($) {
@@ -229,7 +984,33 @@ function compare(a, b) {
   }
 }
 
+// build/dev/javascript/gleam_stdlib/gleam/pair.mjs
+function first(pair) {
+  let a = pair[0];
+  return a;
+}
+function second(pair) {
+  let a = pair[1];
+  return a;
+}
+
 // build/dev/javascript/gleam_stdlib/gleam/list.mjs
+function count_length(loop$list, loop$count) {
+  while (true) {
+    let list = loop$list;
+    let count = loop$count;
+    if (list.atLeastLength(1)) {
+      let list$1 = list.tail;
+      loop$list = list$1;
+      loop$count = count + 1;
+    } else {
+      return count;
+    }
+  }
+}
+function length(list) {
+  return count_length(list, 0);
+}
 function do_reverse(loop$remaining, loop$accumulator) {
   while (true) {
     let remaining = loop$remaining;
@@ -246,9 +1027,6 @@ function do_reverse(loop$remaining, loop$accumulator) {
 }
 function reverse(xs) {
   return do_reverse(xs, toList([]));
-}
-function is_empty(list) {
-  return isEqual(list, toList([]));
 }
 function do_filter(loop$list, loop$fun, loop$acc) {
   while (true) {
@@ -324,6 +1102,53 @@ function do_map(loop$list, loop$fun, loop$acc) {
 function map(list, fun) {
   return do_map(list, fun, toList([]));
 }
+function reverse_and_prepend(loop$prefix, loop$suffix) {
+  while (true) {
+    let prefix = loop$prefix;
+    let suffix = loop$suffix;
+    if (prefix.hasLength(0)) {
+      return suffix;
+    } else {
+      let first$1 = prefix.head;
+      let rest$1 = prefix.tail;
+      loop$prefix = rest$1;
+      loop$suffix = prepend(first$1, suffix);
+    }
+  }
+}
+function do_concat(loop$lists, loop$acc) {
+  while (true) {
+    let lists = loop$lists;
+    let acc = loop$acc;
+    if (lists.hasLength(0)) {
+      return reverse(acc);
+    } else {
+      let list = lists.head;
+      let further_lists = lists.tail;
+      loop$lists = further_lists;
+      loop$acc = reverse_and_prepend(list, acc);
+    }
+  }
+}
+function concat(lists) {
+  return do_concat(lists, toList([]));
+}
+function fold(loop$list, loop$initial, loop$fun) {
+  while (true) {
+    let list = loop$list;
+    let initial = loop$initial;
+    let fun = loop$fun;
+    if (list.hasLength(0)) {
+      return initial;
+    } else {
+      let x = list.head;
+      let rest$1 = list.tail;
+      loop$list = rest$1;
+      loop$initial = fun(initial, x);
+      loop$fun = fun;
+    }
+  }
+}
 function tail_recursive_range(loop$start, loop$stop, loop$acc) {
   while (true) {
     let start4 = loop$start;
@@ -358,13 +1183,6 @@ function join2(strings, separator) {
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/bool.mjs
-function negate(bool2) {
-  if (bool2) {
-    return false;
-  } else {
-    return true;
-  }
-}
 function guard(requirement, consequence, alternative) {
   if (requirement) {
     return consequence;
@@ -481,6 +1299,28 @@ function element(tag, attrs, children) {
 }
 function text(content) {
   return new Text(content);
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/set.mjs
+var Set2 = class extends CustomType {
+  constructor(dict) {
+    super();
+    this.dict = dict;
+  }
+};
+function to_list2(set) {
+  return keys(set.dict);
+}
+var token = void 0;
+function from_list2(members) {
+  let dict = fold(
+    members,
+    new$(),
+    (m, k) => {
+      return insert(m, k, token);
+    }
+  );
+  return new Set2(dict);
 }
 
 // build/dev/javascript/lustre/lustre/internals/runtime.mjs
@@ -970,6 +1810,8 @@ var Model = class extends CustomType {
     this.running = running;
   }
 };
+var NoOp = class extends CustomType {
+};
 var Evolve = class extends CustomType {
 };
 
@@ -988,24 +1830,220 @@ function every(interval, cb) {
   window.setInterval(cb, interval);
 }
 
+// build/dev/javascript/game_of_rps/rules.mjs
+var Dies = class extends CustomType {
+};
+var Revives = class extends CustomType {
+};
+var Same = class extends CustomType {
+};
+function number_of_live(neighbours) {
+  let _pipe = neighbours;
+  let _pipe$1 = filter(
+    _pipe,
+    (status) => {
+      return isEqual(status, new Alive());
+    }
+  );
+  return length(_pipe$1);
+}
+function under_population_rule(cell, neighbours) {
+  if (cell instanceof Alive) {
+    let $ = number_of_live(neighbours);
+    if ($ < 2) {
+      let n = $;
+      return new Dies();
+    } else {
+      return new Same();
+    }
+  } else {
+    return new Same();
+  }
+}
+function lives_on_rule(cell, neighbours) {
+  if (cell instanceof Alive) {
+    let $ = number_of_live(neighbours);
+    if ($ === 2 || $ === 3) {
+      let n = $;
+      return new Same();
+    } else {
+      return new Dies();
+    }
+  } else {
+    return new Same();
+  }
+}
+function over_population_rule(cell, neighbours) {
+  if (cell instanceof Alive) {
+    let $ = number_of_live(neighbours);
+    if ($ > 3) {
+      let n = $;
+      return new Dies();
+    } else {
+      return new Same();
+    }
+  } else {
+    return new Same();
+  }
+}
+function reproduction_rule(cell, neighbours) {
+  if (cell instanceof Alive) {
+    return new Same();
+  } else {
+    let $ = number_of_live(neighbours);
+    if ($ === 3) {
+      let n = $;
+      return new Revives();
+    } else {
+      return new Same();
+    }
+  }
+}
+function reduce_lifecycle(cell, neighbours) {
+  let actions = (() => {
+    let _pipe = toList([
+      under_population_rule,
+      lives_on_rule,
+      over_population_rule,
+      reproduction_rule
+    ]);
+    let _pipe$1 = map(_pipe, (rule) => {
+      return rule(cell, neighbours);
+    });
+    return filter(
+      _pipe$1,
+      (action) => {
+        return !isEqual(action, new Same());
+      }
+    );
+  })();
+  if (actions.hasLength(0)) {
+    return new Same();
+  } else {
+    let head = actions.head;
+    return head;
+  }
+}
+function apply_rules(cell, neighbours) {
+  let action = reduce_lifecycle(cell, neighbours);
+  if (action instanceof Dies) {
+    return new Dead();
+  } else if (action instanceof Revives) {
+    return new Alive();
+  } else {
+    return cell;
+  }
+}
+
 // build/dev/javascript/game_of_rps/game_of_life.mjs
-function has_alive_cell(universe, position) {
+function find_neighbours(universe, position) {
+  let is_neighbour = (pos_1, pos_2) => {
+    let x1 = pos_1[0];
+    let y1 = pos_1[1];
+    let x2 = pos_2[0];
+    let y2 = pos_2[1];
+    return absolute_value(x1 - x2) <= 1 && absolute_value(y1 - y2) <= 1 && !isEqual(
+      pos_1,
+      pos_2
+    );
+  };
+  let _pipe = universe;
+  let _pipe$1 = filter(
+    _pipe,
+    (cell) => {
+      return is_neighbour(position, first(cell));
+    }
+  );
+  return map(_pipe$1, second);
+}
+function evolve_cell(universe, cell) {
+  let position = cell[0];
+  let status = cell[1];
+  let neighbours = find_neighbours(universe, position);
+  return [position, apply_rules(status, neighbours)];
+}
+function find_maybe_cell(universe, position) {
   let in_bounds = (cell) => {
     let cell_position = cell[0];
     return isEqual(cell_position, position);
   };
-  let _pipe = universe;
-  let _pipe$1 = filter(_pipe, in_bounds);
-  let _pipe$2 = is_empty(_pipe$1);
-  return negate(_pipe$2);
+  let $ = (() => {
+    let _pipe = universe;
+    return filter(_pipe, in_bounds);
+  })();
+  if ($.hasLength(0)) {
+    return new None();
+  } else {
+    let c = $.head;
+    return new Some(c);
+  }
 }
 function find_cell(universe, position) {
-  let $ = has_alive_cell(universe, position);
-  if ($) {
-    return [position, new Alive()];
+  let $ = find_maybe_cell(universe, position);
+  if ($ instanceof Some) {
+    let cell = $[0];
+    return cell;
   } else {
     return [position, new Dead()];
   }
+}
+function dedupe(universe) {
+  let positions = map(universe, first);
+  let deduped = (() => {
+    let _pipe = positions;
+    let _pipe$1 = from_list2(_pipe);
+    return to_list2(_pipe$1);
+  })();
+  return map(
+    deduped,
+    (_capture) => {
+      return find_cell(universe, _capture);
+    }
+  );
+}
+function evolve(universe) {
+  let other_positions = (position) => {
+    let x = position[0];
+    let y = position[1];
+    return toList([
+      [x - 1, y - 1],
+      [x, y - 1],
+      [x + 1, y - 1],
+      [x - 1, y],
+      [x + 1, y],
+      [x - 1, y + 1],
+      [x, y + 1],
+      [x + 1, y + 1]
+    ]);
+  };
+  let cells = (position) => {
+    return map(
+      other_positions(position),
+      (_capture) => {
+        return find_cell(universe, _capture);
+      }
+    );
+  };
+  let current_universe = (() => {
+    let _pipe2 = universe;
+    let _pipe$12 = map(_pipe2, first);
+    let _pipe$2 = map(_pipe$12, cells);
+    let _pipe$3 = concat(_pipe$2);
+    return dedupe(_pipe$3);
+  })();
+  let _pipe = current_universe;
+  let _pipe$1 = map(
+    _pipe,
+    (_capture) => {
+      return evolve_cell(universe, _capture);
+    }
+  );
+  return filter(
+    _pipe$1,
+    (cell) => {
+      return isEqual(second(cell), new Alive());
+    }
+  );
 }
 
 // build/dev/javascript/game_of_rps/view.mjs
@@ -1081,7 +2119,23 @@ function view(model) {
   );
 }
 function update2(model, msg) {
-  return [model, none()];
+  let model$1 = (() => {
+    if (msg instanceof NoOp) {
+      return model;
+    } else if (msg instanceof Evolve) {
+      return model.withFields({ universe: evolve(model.universe) });
+    } else {
+      throw makeError(
+        "todo",
+        "game_of_rps",
+        40,
+        "update",
+        "This has not yet been implemented",
+        {}
+      );
+    }
+  })();
+  return [model$1, none()];
 }
 function every2(interval, tick) {
   return from2(
@@ -1100,7 +2154,7 @@ function init2(_) {
       new ViewPort(0, 0, 10, 10, 35),
       true
     ),
-    every2(500, new Evolve())
+    every2(1e3, new Evolve())
   ];
 }
 function main() {
@@ -1110,7 +2164,7 @@ function main() {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      41,
+      47,
       "main",
       "Assignment pattern did not match",
       { value: $ }

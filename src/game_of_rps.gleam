@@ -5,7 +5,8 @@ import lustre/element
 import lustre/element/html
 
 import examples
-import types.{type Model, type Msg, Evolve, Model, ViewPort}
+import game_of_life.{evolve}
+import types.{type Model, type Msg, Evolve, Model, NoOp, ViewPort}
 import view.{view_universe}
 
 fn init(_flags) -> #(Model, Effect(Msg)) {
@@ -16,7 +17,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
       running: True,
       view_port: ViewPort(0, 0, 10, 10, 35),
     ),
-    every(500, Evolve),
+    every(1000, Evolve),
   )
 }
 
@@ -33,6 +34,11 @@ fn header() -> element.Element(Msg) {
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(msg)) {
+  let model = case msg {
+    NoOp -> model
+    Evolve -> Model(..model, universe: evolve(model.universe))
+    _ -> todo
+  }
   #(model, effect.none())
 }
 

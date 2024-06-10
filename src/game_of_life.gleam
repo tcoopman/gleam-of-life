@@ -1,91 +1,90 @@
-import gleam/bool
+import gleam/int
 import gleam/list
+import gleam/option.{type Option}
+import gleam/pair
+import gleam/set
 
-import types.{type Cell, type Position, type Universe, Alive, Dead}
+import rules
+import types.{
+  type Cell, type Neighbours, type Position, type Universe, Alive, Dead,
+}
 
-// module GameOfLife exposing (evolve, findCell)
-
-// import Rules exposing (applyRules)
-// import Types exposing (..)
-// import Set exposing (..)
-
-// isNeighbour : Position -> Position -> Bool
-// isNeighbour ( x1, y1 ) ( x2, y2 ) =
-//     (abs (x1 - x2) <= 1)
-//         && (abs (y1 - y2) <= 1)
-//         && (( x1, y1 ) /= ( x2, y2 ))
-
-// findNeighbours : Universe -> Position -> Neighbours
-// findNeighbours universe position =
-//     universe
-//         |> List.filter (isNeighbour position << Tuple.first)
-//         |> List.map Tuple.second
-
-// evolveCell : Universe -> PositionedCell -> PositionedCell
-// evolveCell universe ( position, cell ) =
-//     let
-//         neighbours =
-//             findNeighbours universe position
-
-//         evolvedCell =
-//             applyRules cell neighbours
-//     in
-//         ( position, evolvedCell )
-
-fn has_alive_cell(universe: Universe, position: Position) -> Bool {
-  let in_bounds = fn(cell: Cell) {
-    let #(cell_position, _) = cell
-    cell_position == position
+fn find_neighbours(universe: Universe, position: Position) -> Neighbours {
+  let is_neighbour = fn(pos_1, pos_2) {
+    let #(x1, y1) = pos_1
+    let #(x2, y2) = pos_2
+    int.absolute_value(x1 - x2) <= 1
+    && int.absolute_value(y1 - y2) <= 1
+    && pos_1 != pos_2
   }
   universe
-  |> list.filter(in_bounds)
-  |> list.is_empty
-  |> bool.negate
+  |> list.filter(fn(cell) { is_neighbour(position, pair.first(cell)) })
+  |> list.map(pair.second)
+}
+
+fn evolve_cell(universe: Universe, cell: Cell) -> Cell {
+  let #(position, status) = cell
+  let neighbours = find_neighbours(universe, position)
+  #(position, rules.apply_rules(status, neighbours))
+}
+
+fn find_maybe_cell(universe: Universe, position: Position) -> Option(Cell) {
+  let in_bounds = fn(cell: Cell) {
+    let #(cell_position, _) = cell
+
+    cell_position == position
+  }
+  case universe |> list.filter(in_bounds) {
+    [] -> option.None
+    [c, ..] -> {
+      option.Some(c)
+    }
+  }
 }
 
 pub fn find_cell(universe: Universe, position: Position) -> Cell {
-  case has_alive_cell(universe, position) {
-    True -> #(position, Alive)
-    False -> #(position, Dead)
+  case find_maybe_cell(universe, position) {
+    option.Some(cell) -> cell
+    option.None -> #(position, Dead)
   }
 }
-// dedupe : Universe -> Universe
-// dedupe universe =
-//     let
-//         positions =
-//             List.map Tuple.first universe
 
-//         dedupedPositions =
-//             positions
-//                 |> Set.fromList
-//                 |> Set.toList
-//     in
-//         List.map (findCell universe) dedupedPositions
+pub fn dedupe(universe: Universe) -> Universe {
+  let positions = list.map(universe, pair.first)
+  let deduped =
+    positions
+    |> set.from_list
+    |> set.to_list
+  list.map(deduped, find_cell(universe, _))
+}
 
-// evolve : Universe -> Universe
-// evolve universe =
-//     let
-//         otherPositions ( x, y ) =
-//             [ ( x - 1, y - 1 )
-//             , ( x, y - 1 )
-//             , ( x + 1, y - 1 )
-//             , ( x - 1, y )
-//             , ( x + 1, y )
-//             , ( x - 1, y + 1 )
-//             , ( x, y + 1 )
-//             , ( x + 1, y + 1 )
-//             ]
+pub fn evolve(universe: Universe) -> Universe {
+  let other_positions = fn(position) {
+    let #(x, y) = position
+    [
+      #(x - 1, y - 1),
+      #(x, y - 1),
+      #(x + 1, y - 1),
+      #(x - 1, y),
+      #(x + 1, y),
+      #(x - 1, y + 1),
+      #(x, y + 1),
+      #(x + 1, y + 1),
+    ]
+  }
 
-//         cells position =
-//             List.map (findCell universe) (otherPositions position)
+  let cells = fn(position) {
+    list.map(other_positions(position), find_cell(universe, _))
+  }
 
-//         currentUniverse =
-//             universe
-//                 |> List.map Tuple.first
-//                 |> List.map cells
-//                 |> List.concat
-//                 |> dedupe
-//     in
-//         currentUniverse
-//             |> List.map (evolveCell universe)
-//             |> List.filter ((==) Alive << Tuple.second)
+  let current_universe =
+    universe
+    |> list.map(pair.first)
+    |> list.map(cells)
+    |> list.concat
+    |> dedupe
+
+  current_universe
+  |> list.map(evolve_cell(universe, _))
+  |> list.filter(fn(cell) { pair.second(cell) == Alive })
+}
