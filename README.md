@@ -1,22 +1,10 @@
-# game_of_rps
+# Gleam Of Life
 
-[![Package Version](https://img.shields.io/hexpm/v/game_of_rps)](https://hex.pm/packages/game_of_rps)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/game_of_rps/)
+Game Of Life in Gleam and Lustre
+Ported from [Elm](https://github.com/tcoopman/game-of-life) and [Bucklescript](https://github.com/tcoopman/game-of-life-bucklescript)
 
 ## Quick start
 
 ```sh
-gleam run   # Run the project
-gleam test  # Run the tests
-gleam shell # Run an Erlang shell
+gleam run -m lustre/dev start  # Run the project
 ```
-
-## Installation
-
-If available on Hex this package can be added to your Gleam project:
-
-```sh
-gleam add game_of_rps
-```
-
-and its documentation can be found at <https://hexdocs.pm/game_of_rps>.
