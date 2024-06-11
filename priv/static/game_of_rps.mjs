@@ -1234,10 +1234,20 @@ var Attribute = class extends CustomType {
     this.as_property = as_property;
   }
 };
+var Event = class extends CustomType {
+  constructor(x0, x1) {
+    super();
+    this[0] = x0;
+    this[1] = x1;
+  }
+};
 
 // build/dev/javascript/lustre/lustre/attribute.mjs
 function attribute(name, value) {
   return new Attribute(name, from(value), false);
+}
+function on(name, handler) {
+  return new Event("on" + name, handler);
 }
 function class$(name) {
   return attribute("class", name);
@@ -1512,25 +1522,25 @@ function createElementNode({ prev, next, dispatch, stack }) {
   return el2;
 }
 var registeredHandlers = /* @__PURE__ */ new WeakMap();
-function lustreGenericEventHandler(event) {
-  const target = event.currentTarget;
+function lustreGenericEventHandler(event2) {
+  const target = event2.currentTarget;
   if (!registeredHandlers.has(target)) {
-    target.removeEventListener(event.type, lustreGenericEventHandler);
+    target.removeEventListener(event2.type, lustreGenericEventHandler);
     return;
   }
   const handlersForEventTarget = registeredHandlers.get(target);
-  if (!handlersForEventTarget.has(event.type)) {
-    target.removeEventListener(event.type, lustreGenericEventHandler);
+  if (!handlersForEventTarget.has(event2.type)) {
+    target.removeEventListener(event2.type, lustreGenericEventHandler);
     return;
   }
-  handlersForEventTarget.get(event.type)(event);
+  handlersForEventTarget.get(event2.type)(event2);
 }
-function lustreServerEventHandler(event) {
-  const el2 = event.target;
-  const tag = el2.getAttribute(`data-lustre-on-${event.type}`);
+function lustreServerEventHandler(event2) {
+  const el2 = event2.target;
+  const tag = el2.getAttribute(`data-lustre-on-${event2.type}`);
   const data = JSON.parse(el2.getAttribute("data-lustre-data") || "{}");
   const include = JSON.parse(el2.getAttribute("data-lustre-include") || "[]");
-  switch (event.type) {
+  switch (event2.type) {
     case "input":
     case "change":
       include.push("target.value");
@@ -1541,7 +1551,7 @@ function lustreServerEventHandler(event) {
     data: include.reduce(
       (data2, property) => {
         const path = property.split(".");
-        for (let i = 0, o = data2, e = event; i < path.length; i++) {
+        for (let i = 0, o = data2, e = event2; i < path.length; i++) {
           if (i === path.length - 1) {
             o[path[i]] = e[path[i]];
           } else {
@@ -1666,9 +1676,9 @@ var LustreClientApplication2 = class _LustreClientApplication {
         return;
     }
   }
-  emit(event, data) {
+  emit(event2, data) {
     this.#root.dispatchEvent(
-      new CustomEvent(event, {
+      new CustomEvent(event2, {
         bubbles: true,
         detail: data,
         composed: true
@@ -1697,7 +1707,7 @@ var LustreClientApplication2 = class _LustreClientApplication {
     while (this.#effects.length) {
       this.#effects.shift()(
         (msg) => this.send(new Dispatch(msg)),
-        (event, data) => this.emit(event, data)
+        (event2, data) => this.emit(event2, data)
       );
     }
     if (this.#queue.length) {
@@ -1785,6 +1795,19 @@ function text2(content) {
 function div(attrs, children) {
   return element("div", attrs, children);
 }
+function button(attrs, children) {
+  return element("button", attrs, children);
+}
+
+// build/dev/javascript/lustre/lustre/event.mjs
+function on2(name, handler) {
+  return on(name, handler);
+}
+function on_click(msg) {
+  return on2("click", (_) => {
+    return new Ok(msg);
+  });
+}
 
 // build/dev/javascript/game_of_rps/types.mjs
 var Alive = class extends CustomType {
@@ -1813,6 +1836,14 @@ var Model = class extends CustomType {
 var NoOp = class extends CustomType {
 };
 var Evolve = class extends CustomType {
+};
+var Left = class extends CustomType {
+};
+var Right = class extends CustomType {
+};
+var Down = class extends CustomType {
+};
+var Up = class extends CustomType {
 };
 
 // build/dev/javascript/game_of_rps/examples.mjs
@@ -2113,13 +2144,13 @@ function select_row(view_port, universe) {
     }
   );
 }
-function view_cell(size, cell) {
+function view_cell(_, cell) {
   let status = cell[1];
   return div(
     toList([
       classes(
         toList([
-          ["flex w-4 h-4 border-gray-400 m-1", true],
+          ["flex w-4 h-4 sm:w-6 sm:h-6 border-gray-400 m-[1px]", true],
           ["bg-alive", isEqual(status, new Alive())],
           ["bg-dead", isEqual(status, new Dead())]
         ])
@@ -2168,8 +2199,55 @@ function view(model) {
     toList([
       header(),
       div(
-        toList([class$("flex justify-center items-center h-full")]),
-        toList([view_universe(model.view_port, model.universe)])
+        toList([
+          class$("flex flex-col justify-center items-center h-full gap-4")
+        ]),
+        toList([
+          div(
+            toList([]),
+            toList([
+              button(
+                toList([
+                  class$("text-5xl text-gleam"),
+                  on_click(new Up())
+                ]),
+                toList([text2("\u2B06\uFE0F")])
+              )
+            ])
+          ),
+          div(
+            toList([class$("flex gap-2")]),
+            toList([
+              button(
+                toList([
+                  class$("text-5xl text-gleam"),
+                  on_click(new Left())
+                ]),
+                toList([text2("\u2B05\uFE0F")])
+              ),
+              view_universe(model.view_port, model.universe),
+              button(
+                toList([
+                  class$("text-5xl text-gleam"),
+                  on_click(new Right())
+                ]),
+                toList([text2("\u27A1\uFE0F")])
+              )
+            ])
+          ),
+          div(
+            toList([]),
+            toList([
+              button(
+                toList([
+                  class$("text-5xl text-gleam"),
+                  on_click(new Down())
+                ]),
+                toList([text2("\u2B07\uFE0F")])
+              )
+            ])
+          )
+        ])
       )
     ])
   );
@@ -2180,11 +2258,39 @@ function update2(model, msg) {
       return model;
     } else if (msg instanceof Evolve) {
       return model.withFields({ universe: evolve(model.universe) });
+    } else if (msg instanceof Left) {
+      return model.withFields({
+        view_port: model.view_port.withFields({
+          x_min: model.view_port.x_min - 1,
+          x_max: model.view_port.x_max - 1
+        })
+      });
+    } else if (msg instanceof Right) {
+      return model.withFields({
+        view_port: model.view_port.withFields({
+          x_min: model.view_port.x_min + 1,
+          x_max: model.view_port.x_max + 1
+        })
+      });
+    } else if (msg instanceof Up) {
+      return model.withFields({
+        view_port: model.view_port.withFields({
+          y_min: model.view_port.y_min - 1,
+          y_max: model.view_port.y_max - 1
+        })
+      });
+    } else if (msg instanceof Down) {
+      return model.withFields({
+        view_port: model.view_port.withFields({
+          y_min: model.view_port.y_min + 1,
+          y_max: model.view_port.y_max + 1
+        })
+      });
     } else {
       throw makeError(
         "todo",
         "game_of_rps",
-        43,
+        100,
         "update",
         "This has not yet been implemented",
         {}
@@ -2207,10 +2313,10 @@ function init2(_) {
     new Model(
       pulsar(),
       toList([["blinker", blinker()]]),
-      new ViewPort(0, 0, 20, 20, 35),
+      new ViewPort(0, 0, 18, 18, 35),
       true
     ),
-    every2(100, new Evolve())
+    every2(250, new Evolve())
   ];
 }
 function main() {
@@ -2220,7 +2326,7 @@ function main() {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      50,
+      107,
       "main",
       "Assignment pattern did not match",
       { value: $ }

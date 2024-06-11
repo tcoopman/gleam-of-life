@@ -6,8 +6,7 @@ import lustre/element/html
 
 import game_of_life.{find_cell}
 import types.{
-  type Cell, type Msg, type Position, type Universe, type ViewPort, Alive, Dead,
-  ViewPort,
+  type Cell, type Msg, type Universe, type ViewPort, Alive, Dead, ViewPort,
 }
 
 fn select_row(view_port: ViewPort, universe: Universe) -> List(Cell) {
@@ -21,12 +20,12 @@ fn view_row(view_port: ViewPort, universe: Universe) {
   html.div([class("flex")], list.map(row, view_cell(view_port.cell_size, _)))
 }
 
-fn view_cell(size: Int, cell: Cell) -> element.Element(Msg) {
+fn view_cell(_size: Int, cell: Cell) -> element.Element(Msg) {
   let #(_position, status) = cell
   html.div(
     [
       classes([
-        #("flex w-4 h-4 border-gray-400 m-1", True),
+        #("flex w-4 h-4 sm:w-6 sm:h-6 border-gray-400 m-[1px]", True),
         #("bg-alive", status == Alive),
         #("bg-dead", status == Dead),
       ]),
