@@ -22,15 +22,18 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
 }
 
 fn view(model: Model) -> element.Element(Msg) {
-  html.div([class("m-4")], [
+  html.div([class("bg-gleamGray w-screen h-screen")], [
     header(),
-    html.div([], []),
-    view_universe(model.view_port, model.universe),
+    html.div([class("flex justify-center items-center h-full")], [
+      view_universe(model.view_port, model.universe),
+    ]),
   ])
 }
 
 fn header() -> element.Element(Msg) {
-  html.div([class("bg-green-200")], [html.text("header")])
+  html.div([class("bg-gleam p-8 flex justify-center text-2xl leading-xl")], [
+    html.text("Gleam Of Life"),
+  ])
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(msg)) {

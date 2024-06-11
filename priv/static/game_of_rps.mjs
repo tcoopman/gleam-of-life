@@ -2120,8 +2120,8 @@ function view_cell(size, cell) {
       classes(
         toList([
           ["flex w-4 h-4 border-gray-400 m-1", true],
-          ["bg-green-500", isEqual(status, new Alive())],
-          ["bg-red-500", isEqual(status, new Dead())]
+          ["bg-alive", isEqual(status, new Alive())],
+          ["bg-dead", isEqual(status, new Dead())]
         ])
       )
     ]),
@@ -2158,17 +2158,19 @@ function view_universe(view_port, universe) {
 // build/dev/javascript/game_of_rps/game_of_rps.mjs
 function header() {
   return div(
-    toList([class$("bg-green-200")]),
-    toList([text2("header")])
+    toList([class$("bg-gleam p-8 flex justify-center text-2xl leading-xl")]),
+    toList([text2("Gleam Of Life")])
   );
 }
 function view(model) {
   return div(
-    toList([class$("m-4")]),
+    toList([class$("bg-gleamGray w-screen h-screen")]),
     toList([
       header(),
-      div(toList([]), toList([])),
-      view_universe(model.view_port, model.universe)
+      div(
+        toList([class$("flex justify-center items-center h-full")]),
+        toList([view_universe(model.view_port, model.universe)])
+      )
     ])
   );
 }
@@ -2182,7 +2184,7 @@ function update2(model, msg) {
       throw makeError(
         "todo",
         "game_of_rps",
-        40,
+        43,
         "update",
         "This has not yet been implemented",
         {}
@@ -2218,7 +2220,7 @@ function main() {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      47,
+      50,
       "main",
       "Assignment pattern did not match",
       { value: $ }

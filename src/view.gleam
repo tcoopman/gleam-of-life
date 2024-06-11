@@ -27,8 +27,8 @@ fn view_cell(size: Int, cell: Cell) -> element.Element(Msg) {
     [
       classes([
         #("flex w-4 h-4 border-gray-400 m-1", True),
-        #("bg-green-500", status == Alive),
-        #("bg-red-500", status == Dead),
+        #("bg-alive", status == Alive),
+        #("bg-dead", status == Dead),
       ]),
     ],
     [],
