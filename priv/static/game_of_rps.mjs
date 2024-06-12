@@ -40,10 +40,10 @@ var List = class {
     return desired === 0;
   }
   countLength() {
-    let length3 = 0;
+    let length4 = 0;
     for (let _ of this)
-      length3++;
-    return length3;
+      length4++;
+    return length4;
   }
 };
 function prepend(element2, tail) {
@@ -228,6 +228,20 @@ function unwrap(result, default$) {
   } else {
     return default$;
   }
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/string_builder.mjs
+function from_strings(strings) {
+  return concat(strings);
+}
+function from_string(string3) {
+  return identity(string3);
+}
+function to_string2(builder) {
+  return identity(builder);
+}
+function split2(iodata, pattern) {
+  return split(iodata, pattern);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/dynamic.mjs
@@ -936,6 +950,37 @@ var Dict = class _Dict {
 function identity(x) {
   return x;
 }
+function string_length(string3) {
+  if (string3 === "") {
+    return 0;
+  }
+  const iterator = graphemes_iterator(string3);
+  if (iterator) {
+    let i = 0;
+    for (const _ of iterator) {
+      i++;
+    }
+    return i;
+  } else {
+    return string3.match(/./gsu).length;
+  }
+}
+function graphemes(string3) {
+  const iterator = graphemes_iterator(string3);
+  if (iterator) {
+    return List.fromArray(Array.from(iterator).map((item) => item.segment));
+  } else {
+    return List.fromArray(string3.match(/./gsu));
+  }
+}
+function graphemes_iterator(string3) {
+  if (Intl && Intl.Segmenter) {
+    return new Intl.Segmenter().segment(string3)[Symbol.iterator]();
+  }
+}
+function split(xs, pattern) {
+  return List.fromArray(xs.split(pattern));
+}
 function join(xs, separator) {
   const iterator = xs[Symbol.iterator]();
   let result = iterator.next().value || "";
@@ -943,6 +988,13 @@ function join(xs, separator) {
   while (!current.done) {
     result = result + separator + current.value;
     current = iterator.next();
+  }
+  return result;
+}
+function concat(xs) {
+  let result = "";
+  for (const x of xs) {
+    result = result + x;
   }
   return result;
 }
@@ -1117,6 +1169,70 @@ function do_map(loop$list, loop$fun, loop$acc) {
 function map(list, fun) {
   return do_map(list, fun, toList([]));
 }
+function do_index_map(loop$list, loop$fun, loop$index, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let fun = loop$fun;
+    let index2 = loop$index;
+    let acc = loop$acc;
+    if (list.hasLength(0)) {
+      return reverse(acc);
+    } else {
+      let x = list.head;
+      let xs = list.tail;
+      let acc$1 = prepend(fun(x, index2), acc);
+      loop$list = xs;
+      loop$fun = fun;
+      loop$index = index2 + 1;
+      loop$acc = acc$1;
+    }
+  }
+}
+function index_map(list, fun) {
+  return do_index_map(list, fun, 0, toList([]));
+}
+function drop(loop$list, loop$n) {
+  while (true) {
+    let list = loop$list;
+    let n = loop$n;
+    let $ = n <= 0;
+    if ($) {
+      return list;
+    } else {
+      if (list.hasLength(0)) {
+        return toList([]);
+      } else {
+        let xs = list.tail;
+        loop$list = xs;
+        loop$n = n - 1;
+      }
+    }
+  }
+}
+function do_take(loop$list, loop$n, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let n = loop$n;
+    let acc = loop$acc;
+    let $ = n <= 0;
+    if ($) {
+      return reverse(acc);
+    } else {
+      if (list.hasLength(0)) {
+        return reverse(acc);
+      } else {
+        let x = list.head;
+        let xs = list.tail;
+        loop$list = xs;
+        loop$n = n - 1;
+        loop$acc = prepend(x, acc);
+      }
+    }
+  }
+}
+function take(list, n) {
+  return do_take(list, n, toList([]));
+}
 function reverse_and_prepend(loop$prefix, loop$suffix) {
   while (true) {
     let prefix = loop$prefix;
@@ -1207,8 +1323,52 @@ function range(start4, stop) {
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/string.mjs
+function length3(string3) {
+  return string_length(string3);
+}
+function concat3(strings) {
+  let _pipe = strings;
+  let _pipe$1 = from_strings(_pipe);
+  return to_string2(_pipe$1);
+}
 function join2(strings, separator) {
   return join(strings, separator);
+}
+function do_slice(string3, idx, len) {
+  let _pipe = string3;
+  let _pipe$1 = graphemes(_pipe);
+  let _pipe$2 = drop(_pipe$1, idx);
+  let _pipe$3 = take(_pipe$2, len);
+  return concat3(_pipe$3);
+}
+function slice(string3, idx, len) {
+  let $ = len < 0;
+  if ($) {
+    return "";
+  } else {
+    let $1 = idx < 0;
+    if ($1) {
+      let translated_idx = length3(string3) + idx;
+      let $2 = translated_idx < 0;
+      if ($2) {
+        return "";
+      } else {
+        return do_slice(string3, translated_idx, len);
+      }
+    } else {
+      return do_slice(string3, idx, len);
+    }
+  }
+}
+function split3(x, substring) {
+  if (substring === "") {
+    return graphemes(x);
+  } else {
+    let _pipe = x;
+    let _pipe$1 = from_string(_pipe);
+    let _pipe$2 = split2(_pipe$1, substring);
+    return map(_pipe$2, to_string2);
+  }
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/bool.mjs
@@ -1955,11 +2115,63 @@ function pulsar() {
     ])
   );
 }
+function to_position(x, y, s) {
+  if (s === "O") {
+    return [[x, y], new Alive()];
+  } else {
+    return [[x, y], new Dead()];
+  }
+}
+function exp(loop$s, loop$i, loop$l) {
+  while (true) {
+    let s = loop$s;
+    let i = loop$i;
+    let l = loop$l;
+    let $ = i < 0;
+    if ($) {
+      return l;
+    } else {
+      loop$s = s;
+      loop$i = i - 1;
+      loop$l = prepend(slice(s, i, 1), l);
+    }
+  }
+}
+function explode(s) {
+  return exp(s, length3(s), toList([]));
+}
+function line_to_universe(input, x) {
+  let chars = explode(input);
+  return index_map(chars, (c, y) => {
+    return to_position(x, y, c);
+  });
+}
+function from_plain_text(str) {
+  let _pipe = str;
+  let _pipe$1 = split3(_pipe, "\n");
+  let _pipe$2 = index_map(_pipe$1, line_to_universe);
+  return concat2(_pipe$2);
+}
+function glider() {
+  let _pipe = "\n........................O...........\n......................O.O...........\n............OO......OO............OO\n...........O...O....OO............OO\nOO........O.....O...OO..............\nOO........O...O.OO....O.O...........\n..........O.....O.......O...........\n...........O...O....................\n............OO......................\n";
+  return from_plain_text(_pipe);
+}
+function bakers_dozen() {
+  let _pipe = "\nOO.........OO\nOOOO.O.....OO\nO.O..OOO\n...........O\n....OO....O.O\n....O.....O..O....O\n...........OO....OO\n\n...............OOO..O.O\n..........OO.....O.OOOO\n..........OO.........OO\n";
+  return from_plain_text(_pipe);
+}
+function thunderbird() {
+  let _pipe = "\nOOO\n\n.O\n.O\n.O\n";
+  return from_plain_text(_pipe);
+}
 function examples() {
   return toList([
     ["Blinker", blinker()],
     ["Space ship", space_ship()],
-    ["Pulsar", pulsar()]
+    ["Pulsar", pulsar()],
+    ["Glider", glider()],
+    ["Bakers dozen", bakers_dozen()],
+    ["Thunderbird", thunderbird()]
   ]);
 }
 

@@ -1,4 +1,6 @@
 import gleam/list
+import gleam/string
+
 import types.{type Position, type Universe, Alive}
 
 fn create(positions: List(Position)) -> Universe {
@@ -10,6 +12,9 @@ pub fn examples() {
     #("Blinker", blinker()),
     #("Space ship", space_ship()),
     #("Pulsar", pulsar()),
+    #("Glider", glider()),
+    #("Bakers dozen", bakers_dozen()),
+    #("Thunderbird", thunderbird()),
   ]
 }
 
@@ -72,4 +77,77 @@ fn pulsar() {
     #(11, 14),
     #(12, 14),
   ])
+}
+
+fn glider() {
+  "
+........................O...........
+......................O.O...........
+............OO......OO............OO
+...........O...O....OO............OO
+OO........O.....O...OO..............
+OO........O...O.OO....O.O...........
+..........O.....O.......O...........
+...........O...O....................
+............OO......................
+"
+  |> from_plain_text
+}
+
+fn bakers_dozen() {
+  "
+OO.........OO
+OOOO.O.....OO
+O.O..OOO
+...........O
+....OO....O.O
+....O.....O..O....O
+...........OO....OO
+
+...............OOO..O.O
+..........OO.....O.OOOO
+..........OO.........OO
+"
+  |> from_plain_text
+}
+
+fn thunderbird() {
+  "
+OOO
+
+.O
+.O
+.O
+"
+  |> from_plain_text
+}
+
+fn from_plain_text(str: String) -> types.Universe {
+  str
+  |> string.split("\n")
+  |> list.index_map(line_to_universe)
+  |> list.concat
+}
+
+fn line_to_universe(input: String, x: Int) {
+  let chars = explode(input)
+  list.index_map(chars, fn(c, y) { to_position(x, y, c) })
+}
+
+fn to_position(x: Int, y: Int, s: String) {
+  case s {
+    "O" -> #(#(x, y), types.Alive)
+    _ -> #(#(x, y), types.Dead)
+  }
+}
+
+fn explode(s: String) {
+  exp(s, string.length(s), [])
+}
+
+fn exp(s: String, i: Int, l) {
+  case i < 0 {
+    True -> l
+    False -> exp(s, i - 1, [string.slice(s, i, 1), ..l])
+  }
 }
