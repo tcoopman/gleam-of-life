@@ -40,8 +40,6 @@ pub type Msg {
   UpdateUniverse(String)
   ToggleRunning
   ToggleCell(Position)
-  ZoomOut
-  ZoomIn
   Left
   Right
   Down

@@ -189,6 +189,52 @@ var Some = class extends CustomType {
 var None = class extends CustomType {
 };
 
+// build/dev/javascript/gleam_stdlib/gleam/order.mjs
+var Lt = class extends CustomType {
+};
+var Eq = class extends CustomType {
+};
+var Gt = class extends CustomType {
+};
+
+// build/dev/javascript/gleam_stdlib/gleam/int.mjs
+function absolute_value(x) {
+  let $ = x >= 0;
+  if ($) {
+    return x;
+  } else {
+    return x * -1;
+  }
+}
+function compare(a, b) {
+  let $ = a === b;
+  if ($) {
+    return new Eq();
+  } else {
+    let $1 = a < b;
+    if ($1) {
+      return new Lt();
+    } else {
+      return new Gt();
+    }
+  }
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/result.mjs
+function unwrap(result, default$) {
+  if (result.isOk()) {
+    let v = result[0];
+    return v;
+  } else {
+    return default$;
+  }
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/dynamic.mjs
+function from(a) {
+  return identity(a);
+}
+
 // build/dev/javascript/gleam_stdlib/dict.mjs
 var referenceMap = /* @__PURE__ */ new WeakMap();
 var tempDataView = new DataView(new ArrayBuffer(8));
@@ -953,37 +999,6 @@ function keys(dict) {
   return do_keys(dict);
 }
 
-// build/dev/javascript/gleam_stdlib/gleam/order.mjs
-var Lt = class extends CustomType {
-};
-var Eq = class extends CustomType {
-};
-var Gt = class extends CustomType {
-};
-
-// build/dev/javascript/gleam_stdlib/gleam/int.mjs
-function absolute_value(x) {
-  let $ = x >= 0;
-  if ($) {
-    return x;
-  } else {
-    return x * -1;
-  }
-}
-function compare(a, b) {
-  let $ = a === b;
-  if ($) {
-    return new Eq();
-  } else {
-    let $1 = a < b;
-    if ($1) {
-      return new Lt();
-    } else {
-      return new Gt();
-    }
-  }
-}
-
 // build/dev/javascript/gleam_stdlib/gleam/pair.mjs
 function first(pair) {
   let a = pair[0];
@@ -1008,7 +1023,7 @@ function count_length(loop$list, loop$count) {
     }
   }
 }
-function length(list) {
+function length2(list) {
   return count_length(list, 0);
 }
 function do_reverse(loop$remaining, loop$accumulator) {
@@ -1130,7 +1145,7 @@ function do_concat(loop$lists, loop$acc) {
     }
   }
 }
-function concat(lists) {
+function concat2(lists) {
   return do_concat(lists, toList([]));
 }
 function fold(loop$list, loop$initial, loop$fun) {
@@ -1146,6 +1161,25 @@ function fold(loop$list, loop$initial, loop$fun) {
       loop$list = rest$1;
       loop$initial = fun(initial, x);
       loop$fun = fun;
+    }
+  }
+}
+function find2(loop$haystack, loop$is_desired) {
+  while (true) {
+    let haystack = loop$haystack;
+    let is_desired = loop$is_desired;
+    if (haystack.hasLength(0)) {
+      return new Error(void 0);
+    } else {
+      let x = haystack.head;
+      let rest$1 = haystack.tail;
+      let $ = is_desired(x);
+      if ($) {
+        return new Ok(x);
+      } else {
+        loop$haystack = rest$1;
+        loop$is_desired = is_desired;
+      }
     }
   }
 }
@@ -1170,11 +1204,6 @@ function tail_recursive_range(loop$start, loop$stop, loop$acc) {
 }
 function range(start4, stop) {
   return tail_recursive_range(start4, stop, toList([]));
-}
-
-// build/dev/javascript/gleam_stdlib/gleam/dynamic.mjs
-function from(a) {
-  return identity(a);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/string.mjs
@@ -1825,10 +1854,10 @@ var ViewPort = class extends CustomType {
   }
 };
 var Model = class extends CustomType {
-  constructor(universe, examples, view_port, running) {
+  constructor(universe, examples2, view_port, running) {
     super();
     this.universe = universe;
-    this.examples = examples;
+    this.examples = examples2;
     this.view_port = view_port;
     this.running = running;
   }
@@ -1836,6 +1865,12 @@ var Model = class extends CustomType {
 var NoOp = class extends CustomType {
 };
 var Evolve = class extends CustomType {
+};
+var UpdateUniverse = class extends CustomType {
+  constructor(x0) {
+    super();
+    this[0] = x0;
+  }
 };
 var ToggleRunning = class extends CustomType {
 };
@@ -1862,6 +1897,9 @@ function create(positions) {
 }
 function blinker() {
   return create(toList([[1, 1], [2, 1], [3, 1]]));
+}
+function space_ship() {
+  return create(toList([[2, 0], [0, 1], [2, 1], [1, 2], [2, 2]]));
 }
 function pulsar() {
   return create(
@@ -1917,6 +1955,13 @@ function pulsar() {
     ])
   );
 }
+function examples() {
+  return toList([
+    ["Blinker", blinker()],
+    ["Space ship", space_ship()],
+    ["Pulsar", pulsar()]
+  ]);
+}
 
 // build/dev/javascript/game_of_rps/ffi.mjs
 function every(interval, cb) {
@@ -1938,7 +1983,7 @@ function number_of_live(neighbours) {
       return isEqual(status, new Alive());
     }
   );
-  return length(_pipe$1);
+  return length2(_pipe$1);
 }
 function under_population_rule(cell, neighbours) {
   if (cell instanceof Alive) {
@@ -2121,7 +2166,7 @@ function evolve(universe) {
     let _pipe2 = universe;
     let _pipe$12 = map(_pipe2, first);
     let _pipe$2 = map(_pipe$12, cells);
-    let _pipe$3 = concat(_pipe$2);
+    let _pipe$3 = concat2(_pipe$2);
     return dedupe(_pipe$3);
   })();
   let _pipe = current_universe;
@@ -2241,8 +2286,18 @@ function view(model) {
       return "\u25B6\uFE0F";
     }
   })();
+  let example_universes = map(
+    model.examples,
+    (example) => {
+      let label = example[0];
+      return button(
+        toList([on_click(new UpdateUniverse(label))]),
+        toList([text2(label)])
+      );
+    }
+  );
   return div(
-    toList([class$("bg-gleamGray w-screen h-screen")]),
+    toList([class$("bg-gleamGray w-screen h-full")]),
     toList([
       header(),
       div(
@@ -2307,6 +2362,16 @@ function view(model) {
             ])
           )
         ])
+      ),
+      div(
+        toList([class$("p-4 text-gleam flex flex-col gap-2 items-center")]),
+        toList([
+          text2("Load a different model"),
+          div(
+            toList([class$("flex gap-3 justify-center")]),
+            example_universes
+          )
+        ])
       )
     ])
   );
@@ -2358,14 +2423,23 @@ function update2(model, msg) {
     } else if (msg instanceof ToggleRunning) {
       return model.withFields({ running: !model.running });
     } else {
-      throw makeError(
-        "todo",
-        "game_of_rps",
-        121,
-        "update",
-        "This has not yet been implemented",
-        {}
-      );
+      let label = msg[0];
+      let new_universe = (() => {
+        let _pipe = find2(
+          model.examples,
+          (example) => {
+            if (example[0] === label) {
+              let l = example[0];
+              return true;
+            } else {
+              return false;
+            }
+          }
+        );
+        let _pipe$1 = unwrap(_pipe, ["", model.universe]);
+        return second(_pipe$1);
+      })();
+      return model.withFields({ universe: new_universe });
     }
   })();
   return [model$1, none()];
@@ -2380,13 +2454,20 @@ function every2(interval, tick) {
   );
 }
 function init2(_) {
+  let examples2 = examples();
+  if (!examples2.atLeastLength(1)) {
+    throw makeError(
+      "assignment_no_match",
+      "game_of_rps",
+      22,
+      "init",
+      "Assignment pattern did not match",
+      { value: examples2 }
+    );
+  }
+  let universe = examples2.head[1];
   return [
-    new Model(
-      pulsar(),
-      toList([["blinker", blinker()]]),
-      new ViewPort(0, 0, 18, 18, 35),
-      true
-    ),
+    new Model(universe, examples2, new ViewPort(0, 0, 18, 18, 35), true),
     every2(250, new Evolve())
   ];
 }
@@ -2397,7 +2478,7 @@ function main() {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      128,
+      156,
       "main",
       "Assignment pattern did not match",
       { value: $ }

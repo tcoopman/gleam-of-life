@@ -5,15 +5,23 @@ fn create(positions: List(Position)) -> Universe {
   list.map(positions, fn(position) { #(position, Alive) })
 }
 
-pub fn blinker() {
+pub fn examples() {
+  [
+    #("Blinker", blinker()),
+    #("Space ship", space_ship()),
+    #("Pulsar", pulsar()),
+  ]
+}
+
+fn blinker() {
   create([#(1, 1), #(2, 1), #(3, 1)])
 }
 
-pub fn space_ship() {
+fn space_ship() {
   create([#(2, 0), #(0, 1), #(2, 1), #(1, 2), #(2, 2)])
 }
 
-pub fn pulsar() {
+fn pulsar() {
   create([
     #(4, 2),
     #(5, 2),
