@@ -3,10 +3,12 @@ import gleam/list
 import lustre/attribute.{class, classes}
 import lustre/element
 import lustre/element/html
+import lustre/event
 
 import game_of_life.{find_cell}
 import types.{
-  type Cell, type Msg, type Universe, type ViewPort, Alive, Dead, ViewPort,
+  type Cell, type Msg, type Universe, type ViewPort, Alive, Dead, ToggleCell,
+  ViewPort,
 }
 
 fn select_row(view_port: ViewPort, universe: Universe) -> List(Cell) {
@@ -21,9 +23,10 @@ fn view_row(view_port: ViewPort, universe: Universe) {
 }
 
 fn view_cell(_size: Int, cell: Cell) -> element.Element(Msg) {
-  let #(_position, status) = cell
-  html.div(
+  let #(position, status) = cell
+  html.button(
     [
+      event.on_click(ToggleCell(position)),
       classes([
         #("flex w-4 h-4 sm:w-6 sm:h-6 border-gray-400 m-[1px]", True),
         #("bg-alive", status == Alive),

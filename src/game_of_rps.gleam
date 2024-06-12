@@ -8,7 +8,8 @@ import lustre/event
 import examples
 import game_of_life.{evolve}
 import types.{
-  type Model, type Msg, Down, Evolve, Left, Model, NoOp, Right, Up, ViewPort,
+  type Model, type Msg, Down, Evolve, Left, Model, NoOp, Right, ToggleCell,
+  ToggleRunning, Up, ViewPort,
 }
 import view.{view_universe}
 
@@ -25,9 +26,19 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
 }
 
 fn view(model: Model) -> element.Element(Msg) {
+  let play_or_pause_text = case model.running {
+    True -> "⏸️"
+    False -> "▶️"
+  }
   html.div([class("bg-gleamGray w-screen h-screen")], [
     header(),
     html.div([class("flex flex-col justify-center items-center h-full gap-4")], [
+      html.div([], [
+        html.button(
+          [class("text-5xl text-gleam"), event.on_click(ToggleRunning)],
+          [html.text(play_or_pause_text)],
+        ),
+      ]),
       html.div([], [
         html.button([class("text-5xl text-gleam"), event.on_click(Up)], [
           html.text("⬆️"),
@@ -60,7 +71,11 @@ fn header() -> element.Element(Msg) {
 fn update(model: Model, msg: Msg) -> #(Model, Effect(msg)) {
   let model = case msg {
     NoOp -> model
-    Evolve -> Model(..model, universe: evolve(model.universe))
+    Evolve ->
+      case model.running {
+        True -> Model(..model, universe: evolve(model.universe))
+        False -> model
+      }
     Left ->
       Model(
         ..model,
@@ -97,6 +112,12 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(msg)) {
           y_max: model.view_port.y_max + 1,
         ),
       )
+    ToggleCell(position) ->
+      Model(
+        ..model,
+        universe: game_of_life.toggle_cell(model.universe, position),
+      )
+    ToggleRunning -> Model(..model, running: !model.running)
     _ -> todo
   }
   #(model, effect.none())

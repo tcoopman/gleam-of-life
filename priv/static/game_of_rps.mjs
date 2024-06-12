@@ -1837,6 +1837,14 @@ var NoOp = class extends CustomType {
 };
 var Evolve = class extends CustomType {
 };
+var ToggleRunning = class extends CustomType {
+};
+var ToggleCell = class extends CustomType {
+  constructor(x0) {
+    super();
+    this[0] = x0;
+  }
+};
 var Left = class extends CustomType {
 };
 var Right = class extends CustomType {
@@ -2130,6 +2138,35 @@ function evolve(universe) {
     }
   );
 }
+function toggle_cell(universe, position) {
+  let cell = (() => {
+    let $ = find_cell(universe, position);
+    if ($[1] instanceof Dead) {
+      let p = $[0];
+      return [p, new Alive()];
+    } else {
+      let p = $[0];
+      return [p, new Dead()];
+    }
+  })();
+  return prepend(
+    cell,
+    (() => {
+      let _pipe = universe;
+      return filter(
+        _pipe,
+        (x) => {
+          if (isEqual(x[0], position)) {
+            let p = x[0];
+            return false;
+          } else {
+            return true;
+          }
+        }
+      );
+    })()
+  );
+}
 
 // build/dev/javascript/game_of_rps/view.mjs
 function select_row(view_port, universe) {
@@ -2145,9 +2182,11 @@ function select_row(view_port, universe) {
   );
 }
 function view_cell(_, cell) {
+  let position = cell[0];
   let status = cell[1];
-  return div(
+  return button(
     toList([
+      on_click(new ToggleCell(position)),
       classes(
         toList([
           ["flex w-4 h-4 sm:w-6 sm:h-6 border-gray-400 m-[1px]", true],
@@ -2194,6 +2233,14 @@ function header() {
   );
 }
 function view(model) {
+  let play_or_pause_text = (() => {
+    let $ = model.running;
+    if ($) {
+      return "\u23F8\uFE0F";
+    } else {
+      return "\u25B6\uFE0F";
+    }
+  })();
   return div(
     toList([class$("bg-gleamGray w-screen h-screen")]),
     toList([
@@ -2203,6 +2250,18 @@ function view(model) {
           class$("flex flex-col justify-center items-center h-full gap-4")
         ]),
         toList([
+          div(
+            toList([]),
+            toList([
+              button(
+                toList([
+                  class$("text-5xl text-gleam"),
+                  on_click(new ToggleRunning())
+                ]),
+                toList([text2(play_or_pause_text)])
+              )
+            ])
+          ),
           div(
             toList([]),
             toList([
@@ -2257,7 +2316,12 @@ function update2(model, msg) {
     if (msg instanceof NoOp) {
       return model;
     } else if (msg instanceof Evolve) {
-      return model.withFields({ universe: evolve(model.universe) });
+      let $ = model.running;
+      if ($) {
+        return model.withFields({ universe: evolve(model.universe) });
+      } else {
+        return model;
+      }
     } else if (msg instanceof Left) {
       return model.withFields({
         view_port: model.view_port.withFields({
@@ -2286,11 +2350,18 @@ function update2(model, msg) {
           y_max: model.view_port.y_max + 1
         })
       });
+    } else if (msg instanceof ToggleCell) {
+      let position = msg[0];
+      return model.withFields({
+        universe: toggle_cell(model.universe, position)
+      });
+    } else if (msg instanceof ToggleRunning) {
+      return model.withFields({ running: !model.running });
     } else {
       throw makeError(
         "todo",
         "game_of_rps",
-        100,
+        121,
         "update",
         "This has not yet been implemented",
         {}
@@ -2326,7 +2397,7 @@ function main() {
     throw makeError(
       "assignment_no_match",
       "game_of_rps",
-      107,
+      128,
       "main",
       "Assignment pattern did not match",
       { value: $ }

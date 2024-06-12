@@ -39,6 +39,7 @@ pub type Msg {
   Evolve
   UpdateUniverse(String)
   ToggleRunning
+  ToggleCell(Position)
   ZoomOut
   ZoomIn
   Left

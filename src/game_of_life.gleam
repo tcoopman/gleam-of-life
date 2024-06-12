@@ -88,3 +88,21 @@ pub fn evolve(universe: Universe) -> Universe {
   |> list.map(evolve_cell(universe, _))
   |> list.filter(fn(cell) { pair.second(cell) == Alive })
 }
+
+pub fn toggle_cell(universe: Universe, position: Position) -> Universe {
+  let cell = case find_cell(universe, position) {
+    #(p, Dead) -> #(p, Alive)
+    #(p, Alive) -> #(p, Dead)
+  }
+
+  [
+    cell,
+    ..universe
+    |> list.filter(fn(x) {
+      case x {
+        #(p, _) if p == position -> False
+        _ -> True
+      }
+    })
+  ]
+}
